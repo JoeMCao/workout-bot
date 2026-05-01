@@ -69,7 +69,35 @@ export function buildOpenApiSpec(baseUrl: string) {
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/UpdateSessionRequest"
+                  type: "object",
+                  properties: {
+                    endedAt: {
+                      type: "string",
+                      format: "date-time"
+                    },
+                    sessionType: {
+                      type: "string"
+                    },
+                    goal: {
+                      type: "string"
+                    },
+                    readinessScore: {
+                      type: "integer"
+                    },
+                    energy: {
+                      type: "integer"
+                    },
+                    soreness: {
+                      type: "string"
+                    },
+                    sleepQuality: {
+                      type: "string"
+                    },
+                    notes: {
+                      type: "string"
+                    }
+                  },
+                  additionalProperties: false
                 }
               }
             }
@@ -214,17 +242,6 @@ export function buildOpenApiSpec(baseUrl: string) {
             }
           }
         }
-      },
-      "/api/openapi": {
-        get: {
-          operationId: "getOpenApiSpec",
-          summary: "Fetch this OpenAPI schema",
-          responses: {
-            "200": {
-              description: "OpenAPI JSON"
-            }
-          }
-        }
       }
     },
     components: {
@@ -265,23 +282,6 @@ export function buildOpenApiSpec(baseUrl: string) {
               type: "string"
             }
           }
-        },
-        UpdateSessionRequest: {
-          allOf: [
-            {
-              $ref: "#/components/schemas/CreateSessionRequest"
-            },
-            {
-              type: "object",
-              properties: {
-                endedAt: {
-                  type: "string",
-                  format: "date-time",
-                  nullable: true
-                }
-              }
-            }
-          ]
         },
         CreateSetRequest: {
           type: "object",
