@@ -79,7 +79,7 @@ npx prisma generate
 
 ## API Auth
 
-Every API route requires:
+Every route except `GET /api/openapi` requires:
 
 ```http
 Authorization: Bearer $WORKOUT_API_KEY
@@ -87,7 +87,7 @@ Authorization: Bearer $WORKOUT_API_KEY
 
 ## Curl Examples
 
-Create a session:
+Create a session with readiness signals:
 
 ```bash
 curl -X POST http://localhost:3000/api/sessions \
@@ -99,7 +99,13 @@ curl -X POST http://localhost:3000/api/sessions \
     "readinessScore": 7,
     "energy": 7,
     "soreness": "mild hamstrings",
-    "sleepQuality": "good"
+    "sleepQuality": "good",
+    "lowBackPain": false,
+    "elbowIrritation": "mild",
+    "neckTightness": "moderate",
+    "fatigueLevel": "high",
+    "sorenessAreas": ["mid-back", "hamstrings"],
+    "readinessNotes": "Slept poorly, low back feels okay"
   }'
 ```
 
@@ -131,7 +137,29 @@ curl -X PATCH http://localhost:3000/api/sessions/SESSION_ID \
   }'
 ```
 
-Fetch recent sessions:
+Update readiness signals mid-workout:
+
+```bash
+curl -X POST http://localhost:3000/api/sessions/SESSION_ID/signals \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "lowBackPain": true,
+    "lowBackPainSeverity": "mild",
+    "elbowIrritation": "none",
+    "fatigueLevel": "high",
+    "readinessNotes": "Back felt tight during warmup"
+  }'
+```
+
+Fetch readiness signals for a session:
+
+```bash
+curl "http://localhost:3000/api/sessions/SESSION_ID/signals" \
+  -H "Authorization: Bearer $WORKOUT_API_KEY"
+```
+
+Fetch recent sessions with readiness signals:
 
 ```bash
 curl "http://localhost:3000/api/sessions/recent?limit=10" \
@@ -148,14 +176,13 @@ curl "http://localhost:3000/api/exercises/history?name=lat%20pulldown&limit=10" 
 Fetch the OpenAPI schema:
 
 ```bash
-curl "http://localhost:3000/api/openapi" \
-  -H "Authorization: Bearer $WORKOUT_API_KEY"
+curl "http://localhost:3000/api/openapi"
 ```
 
 ## Custom GPT Action Setup
 
 1. Deploy the app to Vercel.
-2. Open `https://YOUR_VERCEL_DOMAIN/api/openapi` with the bearer header, or run the curl command above.
+2. Open `https://YOUR_VERCEL_DOMAIN/api/openapi`, or run the curl command above.
 3. Paste the returned JSON into the Custom GPT Action schema editor.
 4. Set Action authentication to API key or bearer token, using the same value as `WORKOUT_API_KEY`.
 5. In your GPT instructions, tell it to create a session at workout start, log sets immediately after completion, call exercise history before prescribing loads, and end the session when finished.

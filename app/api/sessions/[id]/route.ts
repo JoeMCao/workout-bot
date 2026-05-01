@@ -1,7 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { updateSessionSchema } from "@/lib/validation";
+import { sessionSignalsData, updateSessionSchema } from "@/lib/validation";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -36,7 +36,8 @@ export async function PATCH(request: Request, context: RouteContext) {
         energy: body.energy,
         soreness: body.soreness,
         sleepQuality: body.sleepQuality,
-        notes: body.notes
+        notes: body.notes,
+        ...sessionSignalsData(body)
       }
     });
 

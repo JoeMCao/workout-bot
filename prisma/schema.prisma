@@ -17,6 +17,23 @@ model WorkoutSession {
   soreness       String?
   sleepQuality   String?
   notes          String?
+  lowBackPain             Boolean?
+  lowBackPainSeverity     String?
+  elbowIrritation         String?
+  neckTightness           String?
+  shoulderIrritation      String?
+  fatigueLevel            String?
+  motivationLevel         String?
+  sorenessAreas           Json?
+  readinessNotes          String?
+  whoopRecoveryScore      Int?
+  whoopSleepPerformance   Float?
+  whoopSleepEfficiency    Float?
+  whoopHrvRmssd           Float?
+  whoopRestingHeartRate   Float?
+  whoopStrainYesterday    Float?
+  whoopDataFetchedAt      DateTime?
+  whoopRaw                Json?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   sets           ExerciseSet[]

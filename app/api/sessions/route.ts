@@ -1,7 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
 import { handleRouteError, json, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { createSessionSchema } from "@/lib/validation";
+import { createSessionSchema, sessionSignalsData } from "@/lib/validation";
 
 export async function POST(request: Request) {
   const authError = requireApiKey(request);
@@ -18,7 +18,8 @@ export async function POST(request: Request) {
         energy: body.energy,
         soreness: body.soreness,
         sleepQuality: body.sleepQuality,
-        notes: body.notes
+        notes: body.notes,
+        ...sessionSignalsData(body)
       }
     });
 

@@ -1,0 +1,18 @@
+-- AlterTable
+ALTER TABLE "WorkoutSession" ADD COLUMN     "elbowIrritation" TEXT,
+ADD COLUMN     "fatigueLevel" TEXT,
+ADD COLUMN     "lowBackPain" BOOLEAN,
+ADD COLUMN     "lowBackPainSeverity" TEXT,
+ADD COLUMN     "motivationLevel" TEXT,
+ADD COLUMN     "neckTightness" TEXT,
+ADD COLUMN     "readinessNotes" TEXT,
+ADD COLUMN     "shoulderIrritation" TEXT,
+ADD COLUMN     "sorenessAreas" JSONB,
+ADD COLUMN     "whoopDataFetchedAt" TIMESTAMP(3),
+ADD COLUMN     "whoopHrvRmssd" DOUBLE PRECISION,
+ADD COLUMN     "whoopRaw" JSONB,
+ADD COLUMN     "whoopRecoveryScore" INTEGER,
+ADD COLUMN     "whoopRestingHeartRate" DOUBLE PRECISION,
+ADD COLUMN     "whoopSleepEfficiency" DOUBLE PRECISION,
+ADD COLUMN     "whoopSleepPerformance" DOUBLE PRECISION,
+ADD COLUMN     "whoopStrainYesterday" DOUBLE PRECISION;

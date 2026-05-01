@@ -1,3 +1,88 @@
+const severityEnum = ["none", "mild", "moderate", "severe"];
+const levelEnum = ["low", "medium", "high"];
+
+const signalProperties = {
+  lowBackPain: {
+    type: "boolean",
+    nullable: true
+  },
+  lowBackPainSeverity: {
+    type: "string",
+    enum: severityEnum,
+    nullable: true
+  },
+  elbowIrritation: {
+    type: "string",
+    enum: severityEnum,
+    nullable: true
+  },
+  neckTightness: {
+    type: "string",
+    enum: severityEnum,
+    nullable: true
+  },
+  shoulderIrritation: {
+    type: "string",
+    enum: severityEnum,
+    nullable: true
+  },
+  fatigueLevel: {
+    type: "string",
+    enum: levelEnum,
+    nullable: true
+  },
+  motivationLevel: {
+    type: "string",
+    enum: levelEnum,
+    nullable: true
+  },
+  sorenessAreas: {
+    type: "array",
+    items: {
+      type: "string"
+    },
+    nullable: true
+  },
+  readinessNotes: {
+    type: "string",
+    nullable: true
+  },
+  whoopRecoveryScore: {
+    type: "integer",
+    nullable: true
+  },
+  whoopSleepPerformance: {
+    type: "number",
+    nullable: true
+  },
+  whoopSleepEfficiency: {
+    type: "number",
+    nullable: true
+  },
+  whoopHrvRmssd: {
+    type: "number",
+    nullable: true
+  },
+  whoopRestingHeartRate: {
+    type: "number",
+    nullable: true
+  },
+  whoopStrainYesterday: {
+    type: "number",
+    nullable: true
+  },
+  whoopDataFetchedAt: {
+    type: "string",
+    format: "date-time",
+    nullable: true
+  },
+  whoopRaw: {
+    type: "object",
+    additionalProperties: true,
+    nullable: true
+  }
+};
+
 export function buildOpenApiSpec(baseUrl: string) {
   return {
     openapi: "3.1.0",
@@ -95,7 +180,8 @@ export function buildOpenApiSpec(baseUrl: string) {
                     },
                     notes: {
                       type: "string"
-                    }
+                    },
+                    ...signalProperties
                   },
                   additionalProperties: false
                 }
@@ -112,6 +198,102 @@ export function buildOpenApiSpec(baseUrl: string) {
                     properties: {
                       session: {
                         $ref: "#/components/schemas/WorkoutSession"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/sessions/{id}/signals": {
+        get: {
+          operationId: "getWorkoutSessionSignals",
+          summary: "Fetch readiness and recovery signals for a session",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: {
+                type: "string"
+              }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Session signals",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      signals: {
+                        type: "object",
+                        properties: {
+                          id: {
+                            type: "string"
+                          },
+                          ...signalProperties,
+                          updatedAt: {
+                            type: "string",
+                            format: "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        post: {
+          operationId: "updateWorkoutSessionSignals",
+          summary: "Update readiness and recovery signals for a session",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: {
+                type: "string"
+              }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: signalProperties,
+                  additionalProperties: false
+                }
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Updated session signals",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      signals: {
+                        type: "object",
+                        properties: {
+                          id: {
+                            type: "string"
+                          },
+                          ...signalProperties,
+                          updatedAt: {
+                            type: "string",
+                            format: "date-time"
+                          }
+                        }
                       }
                     }
                   }
@@ -280,7 +462,8 @@ export function buildOpenApiSpec(baseUrl: string) {
             },
             notes: {
               type: "string"
-            }
+            },
+            ...signalProperties
           }
         },
         CreateSetRequest: {
@@ -368,6 +551,7 @@ export function buildOpenApiSpec(baseUrl: string) {
               type: "string",
               nullable: true
             },
+            ...signalProperties,
             createdAt: {
               type: "string",
               format: "date-time"
