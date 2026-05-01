@@ -1,6 +1,6 @@
 export function buildOpenApiSpec(baseUrl: string) {
   return {
-    openapi: "3.0.3",
+    openapi: "3.0.1",
     info: {
       title: "Workout Bot API",
       version: "0.1.0",
