@@ -1,6 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
 import { handleRouteError, json, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_USER_TIMEZONE, workoutSessionTimeSource } from "@/lib/time";
 import { createSessionSchema, sessionSignalsData } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -9,9 +10,20 @@ export async function POST(request: Request) {
 
   try {
     const body = createSessionSchema.parse(await parseJson(request));
+    const startedAtRaw = body.startedAt;
+    const hasStartedAt = startedAtRaw != null;
+    const startedAt = hasStartedAt ? new Date(startedAtRaw) : new Date();
+    const timeSource = hasStartedAt
+      ? workoutSessionTimeSource.userProvided
+      : workoutSessionTimeSource.apiDefault;
+
+    console.info(`[workout-session] create timeSource=${timeSource}`);
+
     const session = await prisma.workoutSession.create({
       data: {
-        startedAt: body.startedAt ? new Date(body.startedAt) : undefined,
+        startedAt,
+        timeSource,
+        timezone: DEFAULT_USER_TIMEZONE,
         sessionType: body.sessionType,
         goal: body.goal,
         readinessScore: body.readinessScore,

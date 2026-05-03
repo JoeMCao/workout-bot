@@ -30,6 +30,8 @@ export async function GET(request: Request) {
           select: {
             id: true,
             startedAt: true,
+            timeSource: true,
+            timezone: true,
             sessionType: true,
             goal: true
           }

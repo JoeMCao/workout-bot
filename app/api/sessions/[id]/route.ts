@@ -1,6 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { workoutSessionTimeSource } from "@/lib/time";
 import { sessionSignalsData, updateSessionSchema } from "@/lib/validation";
 
 type RouteContext = {
@@ -23,7 +24,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     const session = await prisma.workoutSession.update({
       where: { id },
       data: {
-        startedAt: body.startedAt ? new Date(body.startedAt) : undefined,
+        startedAt:
+          body.startedAt !== undefined
+            ? new Date(body.startedAt)
+            : undefined,
+        timeSource:
+          body.startedAt !== undefined
+            ? workoutSessionTimeSource.userProvided
+            : undefined,
         endedAt:
           body.endedAt === null
             ? null

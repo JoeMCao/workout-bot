@@ -109,6 +109,14 @@ const activitySourceEnum = [
   "other"
 ] as const;
 
+const workoutSessionTimeSourceEnum = ["api_default", "user_provided"] as const;
+
+const activitySessionTimeSourceEnum = [
+  "api_default",
+  "user_provided",
+  "whoop_screenshot"
+] as const;
+
 const activitySessionMetricProperties = {
   modality: {
     type: "string",
@@ -197,6 +205,12 @@ const relatedWorkoutSessionSummary = {
   properties: {
     id: { type: "string" },
     startedAt: { type: "string", format: "date-time" },
+    timeSource: {
+      type: "string",
+      enum: [...workoutSessionTimeSourceEnum],
+      nullable: true
+    },
+    timezone: { type: "string" },
     sessionType: { type: "string", nullable: true },
     goal: { type: "string", nullable: true }
   }
@@ -209,7 +223,9 @@ const createActivityRequestProperties = {
   },
   startedAt: {
     type: "string",
-    format: "date-time"
+    format: "date-time",
+    description:
+      "Optional. ISO 8601 datetime with offset; normalized to a UTC instant. When omitted, the server sets `startedAt` to the current time (`timeSource=api_default`)."
   },
   ...activitySessionMetricProperties
 };
@@ -222,7 +238,19 @@ const activitySessionResponseProperties = {
   },
   startedAt: {
     type: "string",
-    format: "date-time"
+    format: "date-time",
+    description: "UTC instant (serialized as ISO 8601 with Z or offset)."
+  },
+  timeSource: {
+    type: "string",
+    enum: [...activitySessionTimeSourceEnum],
+    nullable: true,
+    description: "Whether `startedAt` came from the client, WHOOP ingest, or API default."
+  },
+  timezone: {
+    type: "string",
+    description:
+      "IANA timezone for interpreting user-local context; stored instants are always UTC."
   },
   ...activitySessionMetricProperties,
   createdAt: {
@@ -803,7 +831,9 @@ export function buildOpenApiSpec(baseUrl: string) {
           properties: {
             startedAt: {
               type: "string",
-              format: "date-time"
+              format: "date-time",
+              description:
+                "Optional. ISO 8601 with offset as a UTC instant. When omitted, the server uses the current time (`timeSource=api_default`)."
             },
             sessionType: {
               type: "string",
@@ -880,7 +910,19 @@ export function buildOpenApiSpec(baseUrl: string) {
             },
             startedAt: {
               type: "string",
-              format: "date-time"
+              format: "date-time",
+              description: "UTC session start instant."
+            },
+            timeSource: {
+              type: "string",
+              enum: [...workoutSessionTimeSourceEnum],
+              nullable: true,
+              description: "How `startedAt` was set when the session was created."
+            },
+            timezone: {
+              type: "string",
+              description:
+                "IANA timezone label for user context (default America/Los_Angeles); values are stored in UTC."
             },
             endedAt: {
               type: "string",
@@ -1059,15 +1101,15 @@ export function buildOpenApiSpec(baseUrl: string) {
         },
         CreateActivitySessionRequest: {
           type: "object",
-          required: ["type", "startedAt"],
+          required: ["type"],
           properties: createActivityRequestProperties,
           additionalProperties: false
         },
         WhoopIngestionRequest: {
           type: "object",
           description:
-            "WHOOP screenshot parse payload. Same fields as CreateActivitySessionRequest; the ingestion endpoint defaults `source` to whoop_screenshot when omitted.",
-          required: ["type", "startedAt"],
+            "WHOOP screenshot parse payload. Same fields as CreateActivitySessionRequest; defaults `source` to whoop_screenshot when omitted. `startedAt` is optional (server fills current UTC time when missing). When `startedAt` is present, `timeSource` is set to whoop_screenshot.",
+          required: ["type"],
           properties: createActivityRequestProperties,
           additionalProperties: false
         },

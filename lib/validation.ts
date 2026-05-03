@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { activitySessionTimeSource, DEFAULT_USER_TIMEZONE } from "@/lib/time";
 
 const optionalIsoDate = z.string().datetime({ offset: true }).optional();
 const optionalTrimmedString = z.string().trim().min(1).optional();
@@ -183,7 +184,12 @@ const activitySessionFieldsSchema = z.object({
 
 export const createActivitySessionSchema = activitySessionFieldsSchema.extend({
   type: activityTypeSchema,
-  startedAt: z.string().datetime({ offset: true })
+  /** ISO 8601 with offset; interpreted as UTC instant. Omit or null to use server time. */
+  startedAt: z
+    .string()
+    .datetime({ offset: true })
+    .nullable()
+    .optional()
 });
 
 export const updateActivitySessionSchema = activitySessionFieldsSchema
@@ -193,15 +199,20 @@ export const updateActivitySessionSchema = activitySessionFieldsSchema
   })
   .partial();
 
-export type CreateActivitySessionInput = z.infer<
+export type ParsedActivitySessionCreateBody = z.infer<
   typeof createActivitySessionSchema
 >;
 
-export function activitySessionCreateData(body: CreateActivitySessionInput) {
+export function activitySessionCreateData(
+  body: ParsedActivitySessionCreateBody,
+  meta: { startedAt: Date; timeSource: string }
+) {
   const data: Prisma.ActivitySessionCreateInput = {
     type: body.type,
     modality: body.modality,
-    startedAt: new Date(body.startedAt),
+    startedAt: meta.startedAt,
+    timeSource: meta.timeSource,
+    timezone: DEFAULT_USER_TIMEZONE,
     endedAt:
       body.endedAt === null
         ? null
@@ -250,6 +261,7 @@ export function activitySessionUpdateData(
 
   if (body.startedAt !== undefined) {
     data.startedAt = new Date(body.startedAt);
+    data.timeSource = activitySessionTimeSource.userProvided;
   }
 
   if (body.endedAt !== undefined) {

@@ -1,6 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { activitySessionTimeSource } from "@/lib/time";
 import {
   activitySessionCreateData,
   createActivitySessionSchema
@@ -12,6 +13,16 @@ export async function POST(request: Request) {
 
   try {
     const body = createActivitySessionSchema.parse(await parseJson(request));
+    const startedAtRaw = body.startedAt;
+    const hasStartedAt = startedAtRaw != null;
+    const startedAt = hasStartedAt ? new Date(startedAtRaw) : new Date();
+    const timeSource = hasStartedAt
+      ? activitySessionTimeSource.userProvided
+      : activitySessionTimeSource.apiDefault;
+
+    console.info(
+      `[activity-session] create timeSource=${timeSource} type=${body.type}`
+    );
 
     if (body.relatedWorkoutSessionId) {
       const workout = await prisma.workoutSession.findUnique({
@@ -23,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const activity = await prisma.activitySession.create({
-      data: activitySessionCreateData(body)
+      data: activitySessionCreateData(body, { startedAt, timeSource })
     });
 
     return json({ activity }, 201);

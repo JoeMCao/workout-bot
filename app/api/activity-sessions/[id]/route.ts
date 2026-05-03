@@ -11,6 +11,8 @@ const activityInclude = {
     select: {
       id: true,
       startedAt: true,
+      timeSource: true,
+      timezone: true,
       sessionType: true,
       goal: true
     }

@@ -9,6 +9,8 @@ datasource db {
 model WorkoutSession {
   id             String        @id @default(cuid())
   startedAt      DateTime      @default(now())
+  timeSource     String?
+  timezone       String        @default("America/Los_Angeles")
   endedAt        DateTime?
   sessionType    String?
   goal           String?
@@ -47,6 +49,8 @@ model ActivitySession {
   type                    String
   modality                String?
   startedAt               DateTime
+  timeSource              String?
+  timezone                String          @default("America/Los_Angeles")
   endedAt                 DateTime?
   durationMinutes         Float?
   intensity               String?
