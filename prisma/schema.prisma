@@ -36,9 +36,42 @@ model WorkoutSession {
   whoopRaw                Json?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  sets           ExerciseSet[]
+  sets                   ExerciseSet[]
+  linkedActivitySessions ActivitySession[]
 
   @@index([startedAt])
+}
+
+model ActivitySession {
+  id                      String          @id @default(cuid())
+  type                    String
+  modality                String?
+  startedAt               DateTime
+  endedAt                 DateTime?
+  durationMinutes         Float?
+  intensity               String?
+  avgHeartRate            Int?
+  maxHeartRate            Int?
+  minHeartRate            Int?
+  calories                Int?
+  distanceMeters          Float?
+  strain                  Float?
+  zone0Minutes            Float?
+  zone1Minutes            Float?
+  zone2Minutes            Float?
+  zone3Minutes            Float?
+  zone4Minutes            Float?
+  zone5Minutes            Float?
+  source                  String?
+  notes                   String?
+  relatedWorkoutSessionId String?
+  relatedWorkoutSession   WorkoutSession?   @relation(fields: [relatedWorkoutSessionId], references: [id], onDelete: SetNull)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  @@index([startedAt])
+  @@index([type])
+  @@index([relatedWorkoutSessionId])
 }
 
 model Exercise {

@@ -83,6 +83,159 @@ const signalProperties = {
   }
 };
 
+const activityTypeEnum = [
+  "zone2",
+  "hiit",
+  "stairmaster",
+  "run",
+  "walk",
+  "hike",
+  "surf",
+  "swim",
+  "bike",
+  "mobility",
+  "sauna",
+  "cold_plunge",
+  "other"
+] as const;
+
+const activityIntensityEnum = ["low", "moderate", "high"] as const;
+
+const activitySourceEnum = [
+  "manual",
+  "whoop_screenshot",
+  "whoop_api",
+  "apple_health",
+  "other"
+] as const;
+
+const activitySessionMetricProperties = {
+  modality: {
+    type: "string",
+    nullable: true
+  },
+  endedAt: {
+    type: "string",
+    format: "date-time",
+    nullable: true
+  },
+  durationMinutes: {
+    type: "number",
+    nullable: true
+  },
+  intensity: {
+    type: "string",
+    enum: [...activityIntensityEnum],
+    nullable: true
+  },
+  avgHeartRate: {
+    type: "integer",
+    nullable: true
+  },
+  maxHeartRate: {
+    type: "integer",
+    nullable: true
+  },
+  minHeartRate: {
+    type: "integer",
+    nullable: true
+  },
+  calories: {
+    type: "integer",
+    nullable: true
+  },
+  distanceMeters: {
+    type: "number",
+    nullable: true
+  },
+  strain: {
+    type: "number",
+    nullable: true
+  },
+  zone0Minutes: {
+    type: "number",
+    nullable: true
+  },
+  zone1Minutes: {
+    type: "number",
+    nullable: true
+  },
+  zone2Minutes: {
+    type: "number",
+    nullable: true
+  },
+  zone3Minutes: {
+    type: "number",
+    nullable: true
+  },
+  zone4Minutes: {
+    type: "number",
+    nullable: true
+  },
+  zone5Minutes: {
+    type: "number",
+    nullable: true
+  },
+  source: {
+    type: "string",
+    enum: [...activitySourceEnum],
+    nullable: true
+  },
+  notes: {
+    type: "string",
+    nullable: true
+  },
+  relatedWorkoutSessionId: {
+    type: "string",
+    nullable: true
+  }
+};
+
+const relatedWorkoutSessionSummary = {
+  type: "object",
+  nullable: true,
+  properties: {
+    id: { type: "string" },
+    startedAt: { type: "string", format: "date-time" },
+    sessionType: { type: "string", nullable: true },
+    goal: { type: "string", nullable: true }
+  }
+};
+
+const createActivityRequestProperties = {
+  type: {
+    type: "string",
+    enum: [...activityTypeEnum]
+  },
+  startedAt: {
+    type: "string",
+    format: "date-time"
+  },
+  ...activitySessionMetricProperties
+};
+
+const activitySessionResponseProperties = {
+  id: { type: "string" },
+  type: {
+    type: "string",
+    enum: [...activityTypeEnum]
+  },
+  startedAt: {
+    type: "string",
+    format: "date-time"
+  },
+  ...activitySessionMetricProperties,
+  createdAt: {
+    type: "string",
+    format: "date-time"
+  },
+  updatedAt: {
+    type: "string",
+    format: "date-time"
+  },
+  relatedWorkoutSession: relatedWorkoutSessionSummary
+};
+
 export function buildOpenApiSpec(baseUrl: string) {
   return {
     openapi: "3.1.0",
@@ -424,6 +577,217 @@ export function buildOpenApiSpec(baseUrl: string) {
             }
           }
         }
+      },
+      "/api/activity-sessions": {
+        post: {
+          operationId: "createActivitySession",
+          summary: "Create a cardio, endurance, sport, recovery, or mobility activity",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/CreateActivitySessionRequest"
+                }
+              }
+            }
+          },
+          responses: {
+            "201": {
+              description: "Created activity session",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      activity: {
+                        $ref: "#/components/schemas/ActivitySession"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/activity-sessions/recent": {
+        get: {
+          operationId: "getRecentActivitySessions",
+          summary: "List recent activity sessions",
+          parameters: [
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: {
+                type: "integer",
+                default: 20,
+                minimum: 1,
+                maximum: 50
+              }
+            },
+            {
+              name: "type",
+              in: "query",
+              required: false,
+              schema: {
+                type: "string",
+                enum: [...activityTypeEnum]
+              }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Recent activities",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      activities: {
+                        type: "array",
+                        items: {
+                          $ref: "#/components/schemas/ActivitySession"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/activity-sessions/from-whoop": {
+        post: {
+          operationId: "createActivitySessionFromWhoop",
+          summary: "Ingest activity metrics parsed from a WHOOP screenshot",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/WhoopIngestionRequest"
+                }
+              }
+            }
+          },
+          responses: {
+            "201": {
+              description: "Created activity from WHOOP data",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      activity: {
+                        $ref: "#/components/schemas/ActivitySession"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/activity-sessions/{id}": {
+        get: {
+          operationId: "getActivitySession",
+          summary: "Get one activity session by id",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Activity session",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      activity: {
+                        $ref: "#/components/schemas/ActivitySession"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        patch: {
+          operationId: "updateActivitySession",
+          summary: "Update an activity session",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/UpdateActivitySessionRequest"
+                }
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Updated activity",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      activity: {
+                        $ref: "#/components/schemas/ActivitySession"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        delete: {
+          operationId: "deleteActivitySession",
+          summary: "Delete an activity session",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Deleted",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      ok: { type: "boolean" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     components: {
@@ -688,6 +1052,29 @@ export function buildOpenApiSpec(baseUrl: string) {
               }
             }
           ]
+        },
+        ActivitySession: {
+          type: "object",
+          properties: activitySessionResponseProperties
+        },
+        CreateActivitySessionRequest: {
+          type: "object",
+          required: ["type", "startedAt"],
+          properties: createActivityRequestProperties,
+          additionalProperties: false
+        },
+        WhoopIngestionRequest: {
+          type: "object",
+          description:
+            "WHOOP screenshot parse payload. Same fields as CreateActivitySessionRequest; the ingestion endpoint defaults `source` to whoop_screenshot when omitted.",
+          required: ["type", "startedAt"],
+          properties: createActivityRequestProperties,
+          additionalProperties: false
+        },
+        UpdateActivitySessionRequest: {
+          type: "object",
+          properties: createActivityRequestProperties,
+          additionalProperties: false
         }
       }
     }

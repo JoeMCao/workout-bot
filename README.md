@@ -11,6 +11,7 @@ Workout Bot API lets you talk to a GPT from your phone during training while the
 - Stores session-level readiness signals such as low back pain, elbow irritation, neck tightness, fatigue, motivation, and soreness areas.
 - Supports WHOOP-related recovery fields for sleep, HRV, resting heart rate, strain, and raw payloads.
 - Retrieves recent sessions and exercise history so a GPT can adjust training based on real history.
+- Logs **activity sessions** separately from strength work: cardio, endurance, sports, recovery (sauna, cold plunge), and mobility, with optional WHOOP-style metrics and an optional link to a workout session.
 - Exposes a public OpenAPI `3.1.0` schema for easy Custom GPT Action import.
 - Protects all workout data routes with a private bearer API key.
 
@@ -38,6 +39,10 @@ That makes the GPT useful across sessions. It can see recent performance, avoid 
 - `GET /api/sessions/:id/signals`: fetch only readiness/recovery signals.
 - `POST /api/sets`: log a completed set and auto-create the exercise if needed.
 - `GET /api/sessions/recent?limit=10`: fetch recent sessions with exercises, sets, and signals.
+- `POST /api/activity-sessions`: create a standalone activity (cardio, sport, recovery, mobility).
+- `GET /api/activity-sessions/recent?limit=20&type=run`: list recent activities; `type` filter is optional.
+- `GET /api/activity-sessions/:id`, `PATCH /api/activity-sessions/:id`, `DELETE /api/activity-sessions/:id`: read, update, or delete one activity.
+- `POST /api/activity-sessions/from-whoop`: create an activity from GPT-parsed WHOOP screenshot metrics (`source` defaults to `whoop_screenshot`).
 - `GET /api/exercises/history?name=lat%20pulldown&limit=10`: fetch recent set history for an exercise.
 - `GET /api/openapi`: public OpenAPI schema for GPT Actions.
 
@@ -103,7 +108,7 @@ npx prisma migrate deploy
 2. Open `https://YOUR_VERCEL_DOMAIN/api/openapi`.
 3. Paste the returned JSON into the Custom GPT Action schema editor.
 4. Configure Action authentication as bearer/API key auth using `WORKOUT_API_KEY`.
-5. In your GPT instructions, tell it to create a session at workout start, log sets after completion, check exercise history before prescribing loads, update readiness signals when pain or fatigue changes, and end the session when done.
+5. In your GPT instructions, tell it to create a session at workout start, log sets after completion, check exercise history before prescribing loads, update readiness signals when pain or fatigue changes, and end the session when done. For non-strength work, use the activity session endpoints (runs, surf, sauna, WHOOP ingest, and so on).
 
 ## Example Requests
 
@@ -177,6 +182,143 @@ Fetch the OpenAPI schema:
 
 ```bash
 curl "http://localhost:3000/api/openapi"
+```
+
+### Activity sessions (cardio, sport, recovery, WHOOP)
+
+Activity data lives in its own table and API. It never nests under `WorkoutSession` payloads. You may set `relatedWorkoutSessionId` when an activity belongs to the same day or block as a strength session.
+
+**1. Run**
+
+```bash
+curl -X POST http://localhost:3000/api/activity-sessions \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "run",
+    "modality": "outdoor easy",
+    "startedAt": "2026-05-02T07:30:00.000Z",
+    "durationMinutes": 40,
+    "intensity": "moderate",
+    "distanceMeters": 7200,
+    "avgHeartRate": 132,
+    "source": "manual",
+    "notes": "Easy conversational pace"
+  }'
+```
+
+**2. Surf**
+
+```bash
+curl -X POST http://localhost:3000/api/activity-sessions \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "surf",
+    "modality": "ocean session",
+    "startedAt": "2026-05-02T14:00:00.000Z",
+    "durationMinutes": 90,
+    "intensity": "high",
+    "source": "manual"
+  }'
+```
+
+**3. Sauna**
+
+```bash
+curl -X POST http://localhost:3000/api/activity-sessions \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "sauna",
+    "modality": "dry sauna",
+    "startedAt": "2026-05-02T19:00:00.000Z",
+    "durationMinutes": 20,
+    "intensity": "low",
+    "avgHeartRate": 95,
+    "source": "manual"
+  }'
+```
+
+**4. Cold plunge**
+
+```bash
+curl -X POST http://localhost:3000/api/activity-sessions \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "cold_plunge",
+    "modality": "ice bath",
+    "startedAt": "2026-05-02T19:25:00.000Z",
+    "durationMinutes": 3,
+    "intensity": "moderate",
+    "source": "manual"
+  }'
+```
+
+**5. Zone 2 stairmaster**
+
+```bash
+curl -X POST http://localhost:3000/api/activity-sessions \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "zone2",
+    "modality": "gym stair climber",
+    "startedAt": "2026-05-02T06:00:00.000Z",
+    "durationMinutes": 45,
+    "intensity": "low",
+    "avgHeartRate": 118,
+    "source": "manual",
+    "notes": "Zone 2 steady; nose breathing"
+  }'
+```
+
+**6. WHOOP screenshot ingestion**
+
+```bash
+curl -X POST http://localhost:3000/api/activity-sessions/from-whoop \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "run",
+    "modality": "outdoor run",
+    "startedAt": "2026-05-02T07:15:00.000Z",
+    "durationMinutes": 35,
+    "avgHeartRate": 138,
+    "maxHeartRate": 165,
+    "calories": 320,
+    "distanceMeters": 5200,
+    "strain": 8.4,
+    "zone0Minutes": 2,
+    "zone1Minutes": 6,
+    "zone2Minutes": 20,
+    "zone3Minutes": 6,
+    "zone4Minutes": 1,
+    "zone5Minutes": 0,
+    "notes": "parsed from screenshot"
+  }'
+```
+
+Optional link to a strength session (create a workout session first, then pass its `id`):
+
+```bash
+curl -X POST http://localhost:3000/api/activity-sessions \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "mobility",
+    "startedAt": "2026-05-02T16:45:00.000Z",
+    "relatedWorkoutSessionId": "WORKOUT_SESSION_ID",
+    "source": "manual"
+  }'
+```
+
+List recent runs:
+
+```bash
+curl "http://localhost:3000/api/activity-sessions/recent?limit=20&type=run" \
+  -H "Authorization: Bearer $WORKOUT_API_KEY"
 ```
 
 ## Data Notes

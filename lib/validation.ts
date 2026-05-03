@@ -127,3 +127,198 @@ export function sessionSignalsData(
     whoopRaw: signals.whoopRaw === null ? Prisma.JsonNull : signals.whoopRaw
   };
 }
+
+export const activityTypeSchema = z.enum([
+  "zone2",
+  "hiit",
+  "stairmaster",
+  "run",
+  "walk",
+  "hike",
+  "surf",
+  "swim",
+  "bike",
+  "mobility",
+  "sauna",
+  "cold_plunge",
+  "other"
+]);
+
+export const activityIntensitySchema = z.enum(["low", "moderate", "high"]);
+
+export const activitySourceSchema = z.enum([
+  "manual",
+  "whoop_screenshot",
+  "whoop_api",
+  "apple_health",
+  "other"
+]);
+
+const nullableActivityIntensity =
+  activityIntensitySchema.nullable().optional();
+const nullableActivitySource = activitySourceSchema.nullable().optional();
+const nullableFloat = z.number().nullable().optional();
+
+const activitySessionFieldsSchema = z.object({
+  modality: z.string().trim().min(1).nullable().optional(),
+  endedAt: nullableIsoDate,
+  durationMinutes: nullableFloat,
+  intensity: nullableActivityIntensity,
+  avgHeartRate: nullableInt,
+  maxHeartRate: nullableInt,
+  minHeartRate: nullableInt,
+  calories: nullableInt,
+  distanceMeters: nullableFloat,
+  strain: nullableFloat,
+  zone0Minutes: nullableFloat,
+  zone1Minutes: nullableFloat,
+  zone2Minutes: nullableFloat,
+  zone3Minutes: nullableFloat,
+  zone4Minutes: nullableFloat,
+  zone5Minutes: nullableFloat,
+  source: nullableActivitySource,
+  notes: z.string().trim().min(1).nullable().optional(),
+  relatedWorkoutSessionId: z.string().trim().min(1).nullable().optional()
+});
+
+export const createActivitySessionSchema = activitySessionFieldsSchema.extend({
+  type: activityTypeSchema,
+  startedAt: z.string().datetime({ offset: true })
+});
+
+export const updateActivitySessionSchema = activitySessionFieldsSchema
+  .extend({
+    type: activityTypeSchema.optional(),
+    startedAt: optionalIsoDate.optional()
+  })
+  .partial();
+
+export type CreateActivitySessionInput = z.infer<
+  typeof createActivitySessionSchema
+>;
+
+export function activitySessionCreateData(body: CreateActivitySessionInput) {
+  const data: Prisma.ActivitySessionCreateInput = {
+    type: body.type,
+    modality: body.modality,
+    startedAt: new Date(body.startedAt),
+    endedAt:
+      body.endedAt === null
+        ? null
+        : body.endedAt
+          ? new Date(body.endedAt)
+          : undefined,
+    durationMinutes: body.durationMinutes,
+    intensity: body.intensity,
+    avgHeartRate: body.avgHeartRate,
+    maxHeartRate: body.maxHeartRate,
+    minHeartRate: body.minHeartRate,
+    calories: body.calories,
+    distanceMeters: body.distanceMeters,
+    strain: body.strain,
+    zone0Minutes: body.zone0Minutes,
+    zone1Minutes: body.zone1Minutes,
+    zone2Minutes: body.zone2Minutes,
+    zone3Minutes: body.zone3Minutes,
+    zone4Minutes: body.zone4Minutes,
+    zone5Minutes: body.zone5Minutes,
+    source: body.source,
+    notes: body.notes
+  };
+
+  if (body.relatedWorkoutSessionId) {
+    data.relatedWorkoutSession = {
+      connect: { id: body.relatedWorkoutSessionId }
+    };
+  }
+
+  return data;
+}
+
+export function activitySessionUpdateData(
+  body: z.infer<typeof updateActivitySessionSchema>
+): Prisma.ActivitySessionUpdateInput {
+  const data: Prisma.ActivitySessionUpdateInput = {};
+
+  if (body.type !== undefined) {
+    data.type = body.type;
+  }
+
+  if (body.modality !== undefined) {
+    data.modality = body.modality;
+  }
+
+  if (body.startedAt !== undefined) {
+    data.startedAt = new Date(body.startedAt);
+  }
+
+  if (body.endedAt !== undefined) {
+    data.endedAt =
+      body.endedAt === null ? null : new Date(body.endedAt);
+  }
+
+  if (body.durationMinutes !== undefined) {
+    data.durationMinutes = body.durationMinutes;
+  }
+
+  if (body.intensity !== undefined) {
+    data.intensity = body.intensity;
+  }
+
+  if (body.avgHeartRate !== undefined) {
+    data.avgHeartRate = body.avgHeartRate;
+  }
+
+  if (body.maxHeartRate !== undefined) {
+    data.maxHeartRate = body.maxHeartRate;
+  }
+
+  if (body.minHeartRate !== undefined) {
+    data.minHeartRate = body.minHeartRate;
+  }
+
+  if (body.calories !== undefined) {
+    data.calories = body.calories;
+  }
+
+  if (body.distanceMeters !== undefined) {
+    data.distanceMeters = body.distanceMeters;
+  }
+
+  if (body.strain !== undefined) {
+    data.strain = body.strain;
+  }
+
+  for (const key of [
+    "zone0Minutes",
+    "zone1Minutes",
+    "zone2Minutes",
+    "zone3Minutes",
+    "zone4Minutes",
+    "zone5Minutes"
+  ] as const) {
+    if (body[key] !== undefined) {
+      data[key] = body[key];
+    }
+  }
+
+  if (body.source !== undefined) {
+    data.source = body.source;
+  }
+
+  if (body.notes !== undefined) {
+    data.notes = body.notes;
+  }
+
+  if (body.relatedWorkoutSessionId !== undefined) {
+    if (body.relatedWorkoutSessionId === null) {
+      data.relatedWorkoutSession = { disconnect: true };
+    } else {
+      data.relatedWorkoutSession = {
+        connect: { id: body.relatedWorkoutSessionId }
+      };
+    }
+  }
+
+  return data;
+}
