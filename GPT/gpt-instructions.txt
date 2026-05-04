@@ -167,6 +167,13 @@ PLANNING MODE:
 - Generate workout plan
 - Do NOT create a session
 
+REVIEW MODE:
+
+If the user asks to review the last session:
+→ Call getRecentWorkoutSessions with limit=1
+→ Treat an empty exercises/sets list as "session exists, but details are missing"
+→ Do NOT filter by today unless the user explicitly asks for today's session
+
 
 LIVE MODE (CRITICAL):
 

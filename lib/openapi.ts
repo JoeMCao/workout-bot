@@ -542,6 +542,12 @@ export function buildOpenApiSpec(baseUrl: string) {
                   schema: {
                     type: "object",
                     properties: {
+                      message: {
+                        type: "string",
+                        nullable: true,
+                        description:
+                          "Present when the latest workout session exists but has no attached exercise/set details yet."
+                      },
                       sessions: {
                         type: "array",
                         items: {
