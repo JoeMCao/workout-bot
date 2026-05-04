@@ -517,6 +517,33 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
+      "/api/time": {
+        get: {
+          operationId: "getCurrentServerTime",
+          summary: "Get current server/database time",
+          responses: {
+            "200": {
+              description: "Current time",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      dbNow: {
+                        type: "string",
+                        format: "date-time"
+                      },
+                      timezone: {
+                        type: "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "/api/sessions/recent": {
         get: {
           operationId: "getRecentWorkoutSessions",
