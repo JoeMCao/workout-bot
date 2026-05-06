@@ -91,6 +91,19 @@ export function getLocalDateKey(date: Date, timeZone = DEFAULT_USER_TIMEZONE) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+/** Shift a calendar day label `YYYY-MM-DD` by whole days in the given timezone (noon anchor avoids DST edge cases). */
+export function shiftLocalDateKey(
+  ymd: string,
+  deltaDays: number,
+  timeZone = DEFAULT_USER_TIMEZONE
+) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) throw new Error(`Invalid YYYY-MM-DD: ${ymd}`);
+  const localNoon = new Date(y, m - 1, d, 12, 0, 0, 0);
+  localNoon.setDate(localNoon.getDate() + deltaDays);
+  return getLocalDateKey(localNoon, timeZone);
+}
+
 export function formatLocalDate(
   value: string | Date,
   timeZone = DEFAULT_USER_TIMEZONE

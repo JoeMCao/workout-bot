@@ -123,6 +123,57 @@ model WhoopWorkoutMapping {
   @@index([activitySessionId])
 }
 
+/// WHOOP sleep night (daily context). Join to sessions by `localDate` in America/Los_Angeles (prefer wake day from `endedAt`).
+model WhoopSleep {
+  id                           String    @id @default(cuid())
+  sourceSleepId                String?   @unique
+  localDate                    String
+  startedAt                    DateTime?
+  endedAt                      DateTime?
+  timezone                     String    @default("America/Los_Angeles")
+  scoreState                   String?
+  sleepPerformancePercentage   Float?
+  sleepConsistencyPercentage   Float?
+  sleepEfficiencyPercentage    Float?
+  sleepNeededSeconds           Int?
+  sleepDurationSeconds         Int?
+  timeInBedSeconds             Int?
+  awakeTimeSeconds             Int?
+  slowWaveSleepSeconds         Int?
+  remSleepSeconds              Int?
+  lightSleepSeconds            Int?
+  respiratoryRate              Float?
+  rawPayloadJson               Json?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  @@index([localDate])
+  @@index([startedAt])
+}
+
+/// WHOOP morning recovery (daily context). Join to sessions by `localDate` in America/Los_Angeles.
+model WhoopRecovery {
+  id                 String    @id @default(cuid())
+  sourceRecoveryId   String?   @unique
+  localDate          String
+  cycleId            String?
+  sleepId            String?
+  timezone           String    @default("America/Los_Angeles")
+  scoreState         String?
+  recoveryScore      Int?
+  restingHeartRate   Float?
+  hrvRmssdMilli      Float?
+  spo2Percentage     Float?
+  skinTempCelsius    Float?
+  rawPayloadJson     Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([localDate])
+  @@index([cycleId])
+  @@index([sleepId])
+}
+
 model Exercise {
   id             String        @id @default(cuid())
   name           String        @unique

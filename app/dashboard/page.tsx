@@ -113,7 +113,64 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-2">
+      <section className="grid grid-3">
+        <div className="card">
+          <h2>WHOOP today (sleep / recovery)</h2>
+          <p className="muted" style={{ marginBottom: 8 }}>
+            Local day {overview.whoopHealth.localDate}. Sync via{" "}
+            <code style={{ fontSize: 12 }}>POST /api/whoop/health-context/sync</code> or your GPT tools.
+          </p>
+          <div className="grid grid-2">
+            <div className="metric">
+              <span className="metric-value">
+                {overview.whoopHealth.recoveryScore ?? "—"}
+              </span>
+              <span className="muted">recovery score</span>
+            </div>
+            <div className="metric">
+              <span className="metric-value">
+                {overview.whoopHealth.sleepPerformancePercentage != null
+                  ? `${Math.round(overview.whoopHealth.sleepPerformancePercentage)}%`
+                  : "—"}
+              </span>
+              <span className="muted">sleep performance</span>
+            </div>
+            <div className="metric">
+              <span className="metric-value">
+                {overview.whoopHealth.hrvRmssdMilli != null
+                  ? overview.whoopHealth.hrvRmssdMilli.toFixed(1)
+                  : "—"}
+              </span>
+              <span className="muted">HRV RMSSD (ms)</span>
+            </div>
+            <div className="metric">
+              <span className="metric-value">
+                {overview.whoopHealth.restingHeartRate != null
+                  ? overview.whoopHealth.restingHeartRate.toFixed(0)
+                  : "—"}
+              </span>
+              <span className="muted">resting HR</span>
+            </div>
+            <div className="metric" style={{ gridColumn: "1 / -1" }}>
+              <span className="row-title">
+                {formatOptionalDate(overview.whoopHealth.lastHealthContextAt)}
+              </span>
+              <span className="muted">last health row update (sleep or recovery)</span>
+            </div>
+            <div className="metric" style={{ gridColumn: "1 / -1" }}>
+              <span className="row-meta">
+                Scopes: sleep {overview.whoopHealth.readSleep ? "yes" : "no"}, recovery{" "}
+                {overview.whoopHealth.readRecovery ? "yes" : "no"}
+              </span>
+            </div>
+          </div>
+          {overview.whoopHealth.lastSyncError ? (
+            <p className="row-meta" style={{ color: "#b91c1c", marginTop: 12 }}>
+              WHOOP connection error: {overview.whoopHealth.lastSyncError}
+            </p>
+          ) : null}
+        </div>
+
         <div className="card">
           <h2>Recovery Modalities</h2>
           <div className="grid grid-3">

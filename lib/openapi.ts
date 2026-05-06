@@ -972,6 +972,80 @@ export function buildOpenApiSpec(baseUrl: string) {
             }
           }
         }
+      },
+      "/api/whoop/health-context": {
+        get: {
+          operationId: "getWhoopHealthContext",
+          summary:
+            "Read persisted WHOOP sleep + recovery by America/Los_Angeles calendar day (coaching context; not workout rows)",
+          parameters: [
+            {
+              name: "date",
+              in: "query",
+              required: false,
+              schema: {
+                type: "string",
+                pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+                description:
+                  "Anchor date YYYY-MM-DD. Defaults to current date in America/Los_Angeles."
+              }
+            },
+            {
+              name: "days",
+              in: "query",
+              required: false,
+              schema: {
+                type: "integer",
+                minimum: 1,
+                maximum: 14,
+                default: 1,
+                description:
+                  "Number of consecutive local days ending at `date` (inclusive backward window)."
+              }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Sleep and recovery rows per localDate (nulls when not synced / missing)",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/WhoopHealthContextResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/whoop/health-context/sync": {
+        post: {
+          operationId: "syncWhoopHealthContext",
+          summary:
+            "Pull WHOOP sleep and recovery collections into Postgres (read:sleep + read:recovery scopes)",
+          requestBody: {
+            required: false,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/WhoopHealthContextSyncRequest"
+                }
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Sync counts and optional per-row errors",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/WhoopHealthContextSyncResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     components: {
@@ -1312,6 +1386,23 @@ export function buildOpenApiSpec(baseUrl: string) {
               description:
                 "True when `read:workout` appears in the stored scope string (required for workout sync)."
             },
+            readSleep: {
+              type: "boolean",
+              description:
+                "True when `read:sleep` appears in the stored scope (required for sleep health-context sync)."
+            },
+            readRecovery: {
+              type: "boolean",
+              description:
+                "True when `read:recovery` appears in the stored scope (required for recovery health-context sync)."
+            },
+            lastHealthContextAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+              description:
+                "Most recent `updatedAt` among `WhoopSleep` and `WhoopRecovery` rows, if any."
+            },
             whoopDeveloperApiBase: {
               type: "string",
               description:
@@ -1344,6 +1435,9 @@ export function buildOpenApiSpec(baseUrl: string) {
             "needsReviewActivityCount",
             "scope",
             "readWorkout",
+            "readSleep",
+            "readRecovery",
+            "lastHealthContextAt",
             "whoopDeveloperApiBase",
             "whoopWorkoutCollectionUrl",
             "vercelDeploymentId",
@@ -1376,6 +1470,91 @@ export function buildOpenApiSpec(baseUrl: string) {
             }
           },
           required: ["fetched", "inserted", "updated", "skipped", "needsReview"]
+        },
+        WhoopHealthContextSyncRequest: {
+          type: "object",
+          description:
+            "Optional ISO window for WHOOP sleep/recovery collection pagination (same semantics as workout sync).",
+          properties: {
+            start: { type: "string", format: "date-time" },
+            end: { type: "string", format: "date-time" },
+            maxPages: { type: "integer", minimum: 1, maximum: 20 }
+          },
+          additionalProperties: false
+        },
+        WhoopHealthContextSyncResult: {
+          type: "object",
+          properties: {
+            sleepsFetched: { type: "integer", minimum: 0 },
+            sleepsInserted: { type: "integer", minimum: 0 },
+            sleepsUpdated: { type: "integer", minimum: 0 },
+            recoveriesFetched: { type: "integer", minimum: 0 },
+            recoveriesInserted: { type: "integer", minimum: 0 },
+            recoveriesUpdated: { type: "integer", minimum: 0 },
+            errors: {
+              type: "array",
+              items: { type: "string" },
+              description: "Non-fatal row or partial-sync messages (e.g. missing scope for one resource)."
+            }
+          },
+          required: [
+            "sleepsFetched",
+            "sleepsInserted",
+            "sleepsUpdated",
+            "recoveriesFetched",
+            "recoveriesInserted",
+            "recoveriesUpdated",
+            "errors"
+          ]
+        },
+        WhoopHealthContextSyncResponse: {
+          type: "object",
+          properties: {
+            result: {
+              $ref: "#/components/schemas/WhoopHealthContextSyncResult"
+            },
+            whoop: {
+              $ref: "#/components/schemas/WhoopConnectionStatus"
+            }
+          },
+          required: ["result", "whoop"]
+        },
+        WhoopHealthContextResponse: {
+          type: "object",
+          properties: {
+            timezone: {
+              type: "string",
+              description: "IANA timezone used for localDate keys (default America/Los_Angeles)."
+            },
+            anchorDate: {
+              type: "string",
+              description: "YYYY-MM-DD end of the requested backward window."
+            },
+            days: { type: "integer", minimum: 1, maximum: 14 },
+            context: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["localDate", "sleep", "recovery"],
+                properties: {
+                  localDate: { type: "string" },
+                  sleep: {
+                    type: "object",
+                    nullable: true,
+                    additionalProperties: true,
+                    description: "WhoopSleep row or null if none for that local day."
+                  },
+                  recovery: {
+                    type: "object",
+                    nullable: true,
+                    additionalProperties: true,
+                    description: "WhoopRecovery row or null if none for that local day."
+                  }
+                }
+              }
+            }
+          },
+          required: ["timezone", "anchorDate", "days", "context"]
         }
       }
     }

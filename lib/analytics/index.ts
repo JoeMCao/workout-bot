@@ -12,6 +12,7 @@ import {
   getLocalDateKey,
   getStartOfLocalWeekUtc
 } from "@/lib/time";
+import { queryWhoopHealthContextDays } from "@/lib/whoop/health-context-query";
 import { getWhoopStatus } from "@/lib/whoop/sync";
 
 /** Activity rows that are not shells linked to a WorkoutSession (avoids duplicate log/overview lines). */
@@ -439,6 +440,10 @@ export async function getOverviewData() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 8);
 
+  const whoop = await getWhoopStatus();
+  const whoopHealthSnap = await queryWhoopHealthContextDays({ days: 1 });
+  const todayHealth = whoopHealthSnap.context[0];
+
   return {
     latest: latestItems[0] ?? null,
     totals: {
@@ -466,7 +471,18 @@ export async function getOverviewData() {
       withLinkedActivity: workoutsWithLinkedActivity,
       withoutLinkedActivity: totalWorkouts - workoutsWithLinkedActivity
     },
-    whoop: await getWhoopStatus()
+    whoop,
+    whoopHealth: {
+      localDate: whoopHealthSnap.anchorDate,
+      recoveryScore: todayHealth?.recovery?.recoveryScore ?? null,
+      sleepPerformancePercentage: todayHealth?.sleep?.sleepPerformancePercentage ?? null,
+      hrvRmssdMilli: todayHealth?.recovery?.hrvRmssdMilli ?? null,
+      restingHeartRate: todayHealth?.recovery?.restingHeartRate ?? null,
+      lastHealthContextAt: whoop.lastHealthContextAt,
+      lastSyncError: whoop.lastSyncError,
+      readSleep: whoop.readSleep,
+      readRecovery: whoop.readRecovery
+    }
   };
 }
 

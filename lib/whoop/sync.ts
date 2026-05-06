@@ -420,13 +420,21 @@ export async function syncWhoopWorkouts({
   }
 }
 
-function grantedScopesList(scope: string | null | undefined) {
+export function grantedScopesList(scope: string | null | undefined) {
   if (!scope?.trim()) return [];
   return scope.split(/[\s,]+/).filter(Boolean);
 }
 
 function scopeIncludesReadWorkout(scope: string | null | undefined) {
   return grantedScopesList(scope).includes("read:workout");
+}
+
+export function scopeIncludesReadSleep(scope: string | null | undefined) {
+  return grantedScopesList(scope).includes("read:sleep");
+}
+
+export function scopeIncludesReadRecovery(scope: string | null | undefined) {
+  return grantedScopesList(scope).includes("read:recovery");
 }
 
 /** WHOOP OpenAPI server URL + collection path (query string added per request in `fetchWhoopWorkoutPage`). */
@@ -464,6 +472,9 @@ export async function getWhoopStatus() {
       needsReviewActivityCount: 0,
       scope: null as string | null,
       readWorkout: false,
+      readSleep: false,
+      readRecovery: false,
+      lastHealthContextAt: null as string | null,
       ...diag
     };
   }
@@ -471,6 +482,23 @@ export async function getWhoopStatus() {
   const needsReviewActivityCount = await prisma.activitySession.count({
     where: { syncStatus: activitySyncStatus.needsReview }
   });
+
+  const [latestSleep, latestRecovery] = await Promise.all([
+    prisma.whoopSleep.findFirst({
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true }
+    }),
+    prisma.whoopRecovery.findFirst({
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true }
+    })
+  ]);
+  const tSleep = latestSleep?.updatedAt?.getTime() ?? 0;
+  const tRec = latestRecovery?.updatedAt?.getTime() ?? 0;
+  const lastHealthContextAt =
+    tSleep > 0 || tRec > 0
+      ? new Date(Math.max(tSleep, tRec)).toISOString()
+      : null;
 
   return {
     connected: true,
@@ -481,6 +509,9 @@ export async function getWhoopStatus() {
     needsReviewActivityCount,
     scope: connection.scope ?? null,
     readWorkout: scopeIncludesReadWorkout(connection.scope),
+    readSleep: scopeIncludesReadSleep(connection.scope),
+    readRecovery: scopeIncludesReadRecovery(connection.scope),
+    lastHealthContextAt,
     ...diag
   };
 }
