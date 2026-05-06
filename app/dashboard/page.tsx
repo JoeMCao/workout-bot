@@ -78,8 +78,27 @@ export default async function DashboardPage() {
             </div>
             <div className="metric">
               <span className="metric-value">{overview.totals.strength}</span>
-              <span className="muted">strength</span>
+              <span className="muted">strength (WorkoutSession)</span>
             </div>
+            <div className="metric" style={{ gridColumn: "1 / -1" }}>
+              <span className="metric-value">
+                {overview.workoutActivityLinks.withLinkedActivity} /{" "}
+                {overview.workoutActivityLinks.workoutSessionsTotal}
+              </span>
+              <span className="muted">
+                strength sessions with a linked ActivitySession (shell or WHOOP)
+              </span>
+            </div>
+            {overview.workoutActivityLinks.withoutLinkedActivity > 0 ? (
+              <div className="metric" style={{ gridColumn: "1 / -1" }}>
+                <span className="metric-value" style={{ color: "#b45309" }}>
+                  {overview.workoutActivityLinks.withoutLinkedActivity}
+                </span>
+                <span className="muted">
+                  strength sessions with no ActivitySession yet (use backfill / WHOOP sync to link)
+                </span>
+              </div>
+            ) : null}
             <div className="metric">
               <span className="metric-value">{overview.totals.cardio}</span>
               <span className="muted">cardio</span>

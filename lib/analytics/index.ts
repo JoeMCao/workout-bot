@@ -379,6 +379,7 @@ export async function getOverviewData() {
 
   const [
     totalWorkouts,
+    workoutsWithLinkedActivity,
     standaloneActivityCount,
     workoutsThisWeek,
     activitiesThisWeek,
@@ -386,6 +387,9 @@ export async function getOverviewData() {
     recentActivities
   ] = await Promise.all([
     prisma.workoutSession.count(),
+    prisma.workoutSession.count({
+      where: { linkedActivitySessions: { some: {} } }
+    }),
     prisma.activitySession.count({ where: standaloneActivityWhere }),
     prisma.workoutSession.findMany({
       where: { startedAt: { gte: weekStart } },
@@ -456,6 +460,12 @@ export async function getOverviewData() {
       )
     },
     recentContext: contexts,
+    /** Strength WorkoutSessions ↔ ActivitySession link coverage (`relatedWorkoutSessionId` / `linkedActivitySessions`). */
+    workoutActivityLinks: {
+      workoutSessionsTotal: totalWorkouts,
+      withLinkedActivity: workoutsWithLinkedActivity,
+      withoutLinkedActivity: totalWorkouts - workoutsWithLinkedActivity
+    },
     whoop: await getWhoopStatus()
   };
 }
