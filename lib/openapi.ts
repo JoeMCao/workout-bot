@@ -334,14 +334,14 @@ export function buildOpenApiSpec(baseUrl: string) {
       title: "Workout Bot API",
       version: "0.1.0",
       description:
-        "Minimal workout logging API for a Custom GPT gym assistant. Authentication: set the same secret as server env `WORKOUT_API_KEY`—either as an HTTP Bearer token (`Authorization: Bearer <WORKOUT_API_KEY>`) or as header `x-api-key: <WORKOUT_API_KEY>`. In ChatGPT Actions, use API key auth with type Bearer and paste only the raw secret (not the word Bearer)."
+        "Minimal workout logging API for a Custom GPT gym assistant. Authentication (documented scheme): `Authorization: Bearer <WORKOUT_API_KEY>` using the same value as server env `WORKOUT_API_KEY`. ChatGPT Actions: use a single Bearer/API-key style auth and paste only the raw secret. For curl and other clients, header `x-api-key: <WORKOUT_API_KEY>` is also accepted by the server but is omitted from this schema so the document declares one security scheme (Custom GPT requirement)."
     },
     servers: [
       {
         url: baseUrl
       }
     ],
-    security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
+    security: [{ bearerAuth: [] }],
     paths: {
       "/api/sessions": {
         post: {
@@ -1093,13 +1093,8 @@ export function buildOpenApiSpec(baseUrl: string) {
         bearerAuth: {
           type: "http",
           scheme: "bearer",
-          description: "Use the raw `WORKOUT_API_KEY` value (no `Bearer ` prefix in the secret itself)."
-        },
-        apiKeyAuth: {
-          type: "apiKey",
-          in: "header",
-          name: "x-api-key",
-          description: "Same value as `WORKOUT_API_KEY` when not using Authorization Bearer."
+          description:
+            "Use the raw `WORKOUT_API_KEY` value as the bearer token (paste the secret only in ChatGPT; the client sends `Authorization: Bearer <secret>`). The server also accepts `x-api-key` for non-GPT clients, but it is not declared here so the schema exposes exactly one security scheme."
         }
       },
       schemas: {
