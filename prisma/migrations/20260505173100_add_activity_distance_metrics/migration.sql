@@ -1,0 +1,4 @@
+ALTER TABLE "ActivitySession"
+ADD COLUMN "elevationGainMeters" DOUBLE PRECISION,
+ADD COLUMN "elevationLossMeters" DOUBLE PRECISION,
+ADD COLUMN "paceSecondsPerKm" DOUBLE PRECISION;

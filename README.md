@@ -188,6 +188,8 @@ curl "http://localhost:3000/api/openapi"
 
 Activity data lives in its own table and API. It never nests under `WorkoutSession` payloads. You may set `relatedWorkoutSessionId` when an activity belongs to the same day or block as a strength session.
 
+Pace and elevation are normalized at the API boundary. The database stores `paceSecondsPerKm` and `elevationGainMeters`; requests may send `paceMinutesPerMile`, `paceMinutesPerKm`, `paceSecondsPerMile`, `paceSecondsPerKm`, `elevationGainFeet`, or `elevationGainMeters`. `elevationLossMeters` is only stored when descent/loss data is explicitly provided.
+
 **1. Run**
 
 ```bash
@@ -201,6 +203,8 @@ curl -X POST http://localhost:3000/api/activity-sessions \
     "durationMinutes": 40,
     "intensity": "moderate",
     "distanceMeters": 7200,
+    "elevationGainFeet": 302,
+    "paceMinutesPerMile": 8.94,
     "avgHeartRate": 132,
     "source": "manual",
     "notes": "Easy conversational pace"
@@ -289,6 +293,9 @@ curl -X POST http://localhost:3000/api/activity-sessions/from-whoop \
     "maxHeartRate": 165,
     "calories": 320,
     "distanceMeters": 5200,
+    "elevationGainMeters": 44,
+    "elevationLossMeters": 41,
+    "paceSecondsPerKm": 404,
     "strain": 8.4,
     "zone0Minutes": 2,
     "zone1Minutes": 6,

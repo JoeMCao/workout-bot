@@ -117,7 +117,7 @@ const activitySessionTimeSourceEnum = [
   "whoop_screenshot"
 ] as const;
 
-const activitySessionMetricProperties = {
+const activitySessionCanonicalMetricProperties = {
   modality: {
     type: "string",
     nullable: true
@@ -155,6 +155,21 @@ const activitySessionMetricProperties = {
   distanceMeters: {
     type: "number",
     nullable: true
+  },
+  elevationGainMeters: {
+    type: "number",
+    nullable: true,
+    description: "Canonical total ascent in meters."
+  },
+  elevationLossMeters: {
+    type: "number",
+    nullable: true,
+    description: "Explicit total descent/loss in meters. Never inferred from elevation gain."
+  },
+  paceSecondsPerKm: {
+    type: "number",
+    nullable: true,
+    description: "Canonical average pace in seconds per kilometer."
   },
   strain: {
     type: "number",
@@ -199,6 +214,34 @@ const activitySessionMetricProperties = {
   }
 };
 
+const activitySessionRequestMetricProperties = {
+  ...activitySessionCanonicalMetricProperties,
+  elevationGainFeet: {
+    type: "number",
+    nullable: true,
+    description:
+      "Input-only total ascent in feet. Converted to elevationGainMeters before persistence."
+  },
+  paceSecondsPerMile: {
+    type: "number",
+    nullable: true,
+    description:
+      "Input-only average pace in seconds per mile. Converted to paceSecondsPerKm before persistence."
+  },
+  paceMinutesPerKm: {
+    type: "number",
+    nullable: true,
+    description:
+      "Input-only average pace in minutes per kilometer. Converted to paceSecondsPerKm before persistence."
+  },
+  paceMinutesPerMile: {
+    type: "number",
+    nullable: true,
+    description:
+      "Input-only average pace in minutes per mile. Converted to paceSecondsPerKm before persistence."
+  }
+};
+
 const relatedWorkoutSessionSummary = {
   type: "object",
   nullable: true,
@@ -227,7 +270,7 @@ const createActivityRequestProperties = {
     description:
       "Optional. ISO 8601 datetime with offset; normalized to a UTC instant. When omitted, the server sets `startedAt` to the current time (`timeSource=api_default`)."
   },
-  ...activitySessionMetricProperties
+  ...activitySessionRequestMetricProperties
 };
 
 const activitySessionResponseProperties = {
@@ -252,7 +295,7 @@ const activitySessionResponseProperties = {
     description:
       "IANA timezone for interpreting user-local context; stored instants are always UTC."
   },
-  ...activitySessionMetricProperties,
+  ...activitySessionCanonicalMetricProperties,
   createdAt: {
     type: "string",
     format: "date-time"

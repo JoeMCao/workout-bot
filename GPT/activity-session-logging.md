@@ -66,9 +66,18 @@ Extract when available:
 - maxHeartRate
 - calories
 - distanceMeters
+- elevationGainMeters
+- elevationLossMeters
+- paceSecondsPerKm
+- or input aliases: elevationGainFeet, paceMinutesPerMile, paceMinutesPerKm, paceSecondsPerMile
 - strain
 - zone0–zone5 minutes
 - notes
+
+Canonical storage:
+- pace is stored as paceSecondsPerKm; convert if needed or send one pace alias
+- elevation gain is stored as elevationGainMeters; send elevationGainFeet only when source is in feet
+- elevationLossMeters is explicit descent/loss only; never infer it from elevation gain
 
 Partial data is OK.
 Do NOT block logging.

@@ -160,7 +160,109 @@ const nullableActivityIntensity =
 const nullableActivitySource = activitySourceSchema.nullable().optional();
 const nullableFloat = z.number().nullable().optional();
 
-const activitySessionFieldsSchema = z.object({
+type PaceInput = {
+  paceSecondsPerKm?: number | null;
+  paceSecondsPerMile?: number | null;
+  paceMinutesPerKm?: number | null;
+  paceMinutesPerMile?: number | null;
+};
+
+type ElevationGainInput = {
+  elevationGainMeters?: number | null;
+  elevationGainFeet?: number | null;
+};
+
+function definedValues(
+  input: object,
+  converters: Record<string, (value: number) => number>
+) {
+  return Object.keys(converters)
+    .map((key) => {
+      const value = (input as Record<string, unknown>)[key];
+      if (value === undefined) return null;
+      if (value !== null && typeof value !== "number") return null;
+      return {
+        key,
+        value: value === null ? null : converters[key](value)
+      };
+    })
+    .filter(Boolean) as Array<{ key: string; value: number | null }>;
+}
+
+function validateEquivalentInputs(
+  values: Array<{ key: string; value: number | null }>,
+  ctx: z.RefinementCtx,
+  metricName: string
+) {
+  if (values.length <= 1) return;
+
+  if (values.some(({ value }) => value === null)) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Provide only one ${metricName} field when clearing a value.`
+    });
+    return;
+  }
+
+  const [first] = values as Array<{ key: string; value: number }>;
+  const hasConflict = values.some(
+    ({ value }) => value !== null && Math.abs(value - first.value) > 0.001
+  );
+
+  if (hasConflict) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Conflicting ${metricName} values were provided.`
+    });
+  }
+}
+
+function validateCanonicalMetricInputs(
+  body: PaceInput & ElevationGainInput,
+  ctx: z.RefinementCtx
+) {
+  validateEquivalentInputs(
+    definedValues(body, {
+      paceSecondsPerKm: (value) => value,
+      paceSecondsPerMile: (value) => value / 1.609344,
+      paceMinutesPerKm: (value) => value * 60,
+      paceMinutesPerMile: (value) => (value * 60) / 1.609344
+    }),
+    ctx,
+    "pace"
+  );
+
+  validateEquivalentInputs(
+    definedValues(body, {
+      elevationGainMeters: (value) => value,
+      elevationGainFeet: (value) => value * 0.3048
+    }),
+    ctx,
+    "elevation gain"
+  );
+}
+
+function normalizePaceSecondsPerKm(input: PaceInput) {
+  const values = definedValues(input, {
+    paceSecondsPerKm: (value) => value,
+    paceSecondsPerMile: (value) => value / 1.609344,
+    paceMinutesPerKm: (value) => value * 60,
+    paceMinutesPerMile: (value) => (value * 60) / 1.609344
+  });
+
+  return values[0]?.value;
+}
+
+function normalizeElevationGainMeters(input: ElevationGainInput) {
+  const values = definedValues(input, {
+    elevationGainMeters: (value) => value,
+    elevationGainFeet: (value) => value * 0.3048
+  });
+
+  return values[0]?.value;
+}
+
+const activitySessionFieldsShape = {
   modality: z.string().trim().min(1).nullable().optional(),
   endedAt: nullableIsoDate,
   durationMinutes: nullableFloat,
@@ -170,6 +272,13 @@ const activitySessionFieldsSchema = z.object({
   minHeartRate: nullableInt,
   calories: nullableInt,
   distanceMeters: nullableFloat,
+  elevationGainMeters: nullableFloat,
+  elevationGainFeet: nullableFloat,
+  elevationLossMeters: nullableFloat,
+  paceSecondsPerKm: nullableFloat,
+  paceSecondsPerMile: nullableFloat,
+  paceMinutesPerKm: nullableFloat,
+  paceMinutesPerMile: nullableFloat,
   strain: nullableFloat,
   zone0Minutes: nullableFloat,
   zone1Minutes: nullableFloat,
@@ -180,24 +289,29 @@ const activitySessionFieldsSchema = z.object({
   source: nullableActivitySource,
   notes: z.string().trim().min(1).nullable().optional(),
   relatedWorkoutSessionId: z.string().trim().min(1).nullable().optional()
-});
+};
 
-export const createActivitySessionSchema = activitySessionFieldsSchema.extend({
-  type: activityTypeSchema,
-  /** ISO 8601 with offset; interpreted as UTC instant. Omit or null to use server time. */
-  startedAt: z
-    .string()
-    .datetime({ offset: true })
-    .nullable()
-    .optional()
-});
+export const createActivitySessionSchema = z
+  .object({
+    ...activitySessionFieldsShape,
+    type: activityTypeSchema,
+    /** ISO 8601 with offset; interpreted as UTC instant. Omit or null to use server time. */
+    startedAt: z
+      .string()
+      .datetime({ offset: true })
+      .nullable()
+      .optional()
+  })
+  .superRefine((body, ctx) => validateCanonicalMetricInputs(body, ctx));
 
-export const updateActivitySessionSchema = activitySessionFieldsSchema
-  .extend({
+export const updateActivitySessionSchema = z
+  .object({
+    ...activitySessionFieldsShape,
     type: activityTypeSchema.optional(),
     startedAt: optionalIsoDate.optional()
   })
-  .partial();
+  .partial()
+  .superRefine((body, ctx) => validateCanonicalMetricInputs(body, ctx));
 
 export type ParsedActivitySessionCreateBody = z.infer<
   typeof createActivitySessionSchema
@@ -226,6 +340,9 @@ export function activitySessionCreateData(
     minHeartRate: body.minHeartRate,
     calories: body.calories,
     distanceMeters: body.distanceMeters,
+    elevationGainMeters: normalizeElevationGainMeters(body),
+    elevationLossMeters: body.elevationLossMeters,
+    paceSecondsPerKm: normalizePaceSecondsPerKm(body),
     strain: body.strain,
     zone0Minutes: body.zone0Minutes,
     zone1Minutes: body.zone1Minutes,
@@ -295,6 +412,20 @@ export function activitySessionUpdateData(
 
   if (body.distanceMeters !== undefined) {
     data.distanceMeters = body.distanceMeters;
+  }
+
+  const elevationGainMeters = normalizeElevationGainMeters(body);
+  if (elevationGainMeters !== undefined) {
+    data.elevationGainMeters = elevationGainMeters;
+  }
+
+  if (body.elevationLossMeters !== undefined) {
+    data.elevationLossMeters = body.elevationLossMeters;
+  }
+
+  const paceSecondsPerKm = normalizePaceSecondsPerKm(body);
+  if (paceSecondsPerKm !== undefined) {
+    data.paceSecondsPerKm = paceSecondsPerKm;
   }
 
   if (body.strain !== undefined) {

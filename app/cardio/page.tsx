@@ -4,6 +4,8 @@ import {
   formatDate,
   formatDistance,
   formatDuration,
+  formatElevation,
+  formatPace,
   getCardioTrends,
   labelForTag
 } from "@/lib/analytics";
@@ -43,6 +45,8 @@ export default async function CardioPage() {
                 <th>Avg / Max HR</th>
                 <th>Calories</th>
                 <th>Distance</th>
+                <th>Pace</th>
+                <th>Elevation</th>
                 <th>Notes</th>
               </tr>
             </thead>
@@ -57,6 +61,19 @@ export default async function CardioPage() {
                   </td>
                   <td>{point.calories ?? "-"}</td>
                   <td>{formatDistance(point.distanceMeters) ?? "-"}</td>
+                  <td>{formatPace(point.paceSecondsPerKm) ?? "-"}</td>
+                  <td>
+                    {[
+                      point.elevationGainMeters != null
+                        ? `+${formatElevation(point.elevationGainMeters)}`
+                        : null,
+                      point.elevationLossMeters != null
+                        ? `-${formatElevation(point.elevationLossMeters)}`
+                        : null
+                    ]
+                      .filter(Boolean)
+                      .join(" / ") || "-"}
+                  </td>
                   <td>
                     {point.notes ? <p>{point.notes}</p> : <span className="muted">No notes</span>}
                     {point.tags.length > 0 ? (

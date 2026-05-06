@@ -84,6 +84,9 @@ export type CardioTrendPoint = {
   maxHeartRate: number | null;
   calories: number | null;
   distanceMeters: number | null;
+  elevationGainMeters: number | null;
+  elevationLossMeters: number | null;
+  paceSecondsPerKm: number | null;
   zoneMinutes: number[];
   notes: string | null;
   tags: ContextTag[];
@@ -151,6 +154,20 @@ export function formatDistance(meters: number | null) {
   if (meters == null) return null;
   const miles = meters / 1609.344;
   return `${miles.toFixed(2)} mi`;
+}
+
+export function formatElevation(meters: number | null) {
+  if (meters == null) return null;
+  const feet = meters * 3.28084;
+  return `${Math.round(feet)} ft`;
+}
+
+export function formatPace(secondsPerKm: number | null) {
+  if (secondsPerKm == null) return null;
+  const secondsPerMile = Math.round(secondsPerKm * 1.609344);
+  const minutes = Math.floor(secondsPerMile / 60);
+  const seconds = secondsPerMile % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")} / mi`;
 }
 
 function startOfWeek(date = new Date()) {
@@ -300,7 +317,11 @@ function activityToLogItem(activity: ActivitySession): TrainingLogItem {
     details: compact([
       activity.type,
       activity.avgHeartRate ? `${activity.avgHeartRate} avg HR` : null,
-      formatDistance(activity.distanceMeters)
+      formatDistance(activity.distanceMeters),
+      formatPace(activity.paceSecondsPerKm),
+      activity.elevationGainMeters != null
+        ? `${formatElevation(activity.elevationGainMeters)} gain`
+        : null
     ]).join(" / "),
     intensity: activity.intensity,
     notes: activity.notes,
@@ -499,6 +520,9 @@ export async function getCardioTrends() {
     maxHeartRate: activity.maxHeartRate,
     calories: activity.calories,
     distanceMeters: activity.distanceMeters,
+    elevationGainMeters: activity.elevationGainMeters,
+    elevationLossMeters: activity.elevationLossMeters,
+    paceSecondsPerKm: activity.paceSecondsPerKm,
     zoneMinutes: [
       activity.zone0Minutes ?? 0,
       activity.zone1Minutes ?? 0,

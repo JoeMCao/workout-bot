@@ -59,6 +59,9 @@ model ActivitySession {
   minHeartRate            Int?
   calories                Int?
   distanceMeters          Float?
+  elevationGainMeters     Float?
+  elevationLossMeters     Float?
+  paceSecondsPerKm        Float?
   strain                  Float?
   zone0Minutes            Float?
   zone1Minutes            Float?
