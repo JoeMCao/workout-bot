@@ -786,7 +786,9 @@ export function buildOpenApiSpec(baseUrl: string) {
       "/api/activity-sessions/from-whoop": {
         post: {
           operationId: "createActivitySessionFromWhoop",
-          summary: "Ingest activity metrics parsed from a WHOOP screenshot",
+          summary: "Legacy/manual WHOOP activity ingest (fallback)",
+          description:
+            "Fallback-only: use when WHOOP OAuth sync is unavailable, sync failed, or you are manually correcting/importing historical activity from parsed screenshot text. Prefer getWhoopConnectionStatus + syncWhoopWorkouts + recent ActivitySession reads for normal logging.",
           requestBody: {
             required: true,
             content: {
@@ -799,7 +801,8 @@ export function buildOpenApiSpec(baseUrl: string) {
           },
           responses: {
             "201": {
-              description: "Created activity from WHOOP data",
+              description:
+                "Created activity (legacy/manual ingest; source typically whoop_screenshot)",
               content: {
                 "application/json": {
                   schema: {
@@ -1261,7 +1264,7 @@ export function buildOpenApiSpec(baseUrl: string) {
         WhoopIngestionRequest: {
           type: "object",
           description:
-            "WHOOP screenshot parse payload. Same fields as CreateActivitySessionRequest; defaults `source` to whoop_screenshot when omitted. `startedAt` is optional (server fills current UTC time when missing). When `startedAt` is present, `timeSource` is set to whoop_screenshot.",
+            "Legacy/manual fallback payload (e.g. GPT-parsed screenshot metrics). Not the preferred path—use WHOOP OAuth + sync for live data. Same fields as CreateActivitySessionRequest; defaults `source` to whoop_screenshot when omitted. `startedAt` is optional (server fills current UTC time when missing). When `startedAt` is present, `timeSource` is set to whoop_screenshot.",
           required: ["type"],
           properties: createActivityRequestProperties,
           additionalProperties: false

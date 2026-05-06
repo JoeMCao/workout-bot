@@ -1,5 +1,13 @@
 # Activity Session Logging
 
+## Preferred vs legacy WHOOP ingest
+
+**Preferred (default):** WHOOP is connected → `getWhoopConnectionStatus` → `syncWhoopWorkouts` → read recent `ActivitySession` rows → confirm match with the user. This is the normal path for “I finished my run / workout.”
+
+**Legacy / fallback only:** `createActivitySessionFromWhoop` when OAuth sync is unavailable, sync failed, no matching activity after sync, or the user explicitly provides screenshot-parse data. Not the primary ingestion path; kept for recovery and backward compatibility.
+
+---
+
 ## What is an ActivitySession
 
 Used for:
@@ -14,8 +22,8 @@ These are NOT WorkoutSessions.
 ## When to Log
 
 Log ONLY when:
-- activity is clearly completed
-- WHOOP screenshot is provided
+- activity is clearly completed, and
+- you have a path: **WHOOP sync + recent activities** (preferred), or **legacy from-whoop** only if sync cannot be used (see above)
 
 Do NOT log when:
 - planning
@@ -47,11 +55,14 @@ If API fails:
 
 Use:
 
+- getWhoopConnectionStatus + syncWhoopWorkouts + getRecentActivitySessions
+  → default when the user finished an activity and WHOOP may have the data
+
 - createActivitySessionFromWhoop
-  → for WHOOP screenshots
+  → **legacy / fallback only:** screenshot parse, failed sync, disconnected WHOOP, or historical manual import (`whoop_screenshot`)
 
 - createActivitySession
-  → for manual activity descriptions
+  → for manual activity descriptions (non-WHOOP)
 
 ---
 
@@ -84,9 +95,11 @@ Do NOT block logging.
 
 ---
 
-## WHOOP Rules
+## WHOOP Rules (legacy screenshot path)
 
-If screenshot:
+Use this section **only** when using `createActivitySessionFromWhoop` (fallback), not when using OAuth sync.
+
+If screenshot / parsed card:
 
 - Extract ALL visible metrics
 - source = "whoop_screenshot"
@@ -97,7 +110,7 @@ If timestamp visible:
 Else:
 → omit startedAt (API defaults)
 
-Always use:
+Call:
 → createActivitySessionFromWhoop
 
 ---

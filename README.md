@@ -42,7 +42,7 @@ That makes the GPT useful across sessions. It can see recent performance, avoid 
 - `POST /api/activity-sessions`: create a standalone activity (cardio, sport, recovery, mobility).
 - `GET /api/activity-sessions/recent?limit=20&type=run`: list recent activities; `type` filter is optional.
 - `GET /api/activity-sessions/:id`, `PATCH /api/activity-sessions/:id`, `DELETE /api/activity-sessions/:id`: read, update, or delete one activity.
-- `POST /api/activity-sessions/from-whoop`: create an activity from GPT-parsed WHOOP screenshot metrics (`source` defaults to `whoop_screenshot`).
+- `POST /api/activity-sessions/from-whoop`: **legacy/manual fallback**—create an activity from GPT-parsed WHOOP metrics (e.g. screenshot); prefer WHOOP OAuth + `POST /api/whoop/sync` for normal use (`source` defaults to `whoop_screenshot`).
 - `GET /api/exercises/history?name=lat%20pulldown&limit=10`: fetch recent set history for an exercise.
 - `GET /api/openapi`: public OpenAPI schema for GPT Actions.
 
@@ -134,7 +134,7 @@ See `docs/WHOOP_DATA_MODEL_PLAN.md` for context.
 2. Open `https://YOUR_VERCEL_DOMAIN/api/openapi`.
 3. Paste the returned JSON into the Custom GPT Action schema editor.
 4. Configure Action authentication as bearer/API key auth using `WORKOUT_API_KEY`.
-5. In your GPT instructions, tell it to create a session at workout start, log sets after completion, check exercise history before prescribing loads, update readiness signals when pain or fatigue changes, and end the session when done. For non-strength work, use the activity session endpoints (runs, surf, sauna, WHOOP ingest, and so on).
+5. In your GPT instructions, tell it to create a session at workout start, log sets after completion, check exercise history before prescribing loads, update readiness signals when pain or fatigue changes, and end the session when done. For non-strength work, prefer **WHOOP OAuth + sync** (`/api/whoop/status`, `/api/whoop/sync`, recent activities); use **`/api/activity-sessions/from-whoop`** only as a legacy fallback (e.g. screenshot parse). See `GPT/gpt-instructions.txt` and `GPT/activity-session-logging.md`.
 
 ## Example Requests
 
@@ -304,7 +304,7 @@ curl -X POST http://localhost:3000/api/activity-sessions \
   }'
 ```
 
-**6. WHOOP screenshot ingestion**
+**6. Manual WHOOP import (legacy / fallback; prefer `/api/whoop/sync` when OAuth is connected)**
 
 ```bash
 curl -X POST http://localhost:3000/api/activity-sessions/from-whoop \

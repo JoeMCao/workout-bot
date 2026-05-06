@@ -43,6 +43,8 @@ Prefer validating assumptions against real API responses before introducing addi
 
 - **WHOOP today:** `WhoopWorkoutMapping` (`whoopWorkoutId` **unique**) → optional `activitySessionId`; raw JSON in `mapping.raw`. Sync creates/updates `ActivitySession` and mapping rows.
 
+**Activity ingestion preference:** **`POST /api/whoop/sync`** (after OAuth) is the default source of WHOOP-backed activities. **`POST /api/activity-sessions/from-whoop`** remains a **legacy / fallback** path (screenshot parse, failed sync, disconnected account, historical import)—do not remove; see OpenAPI and GPT instructions.
+
 ---
 
 ## Target conceptual model

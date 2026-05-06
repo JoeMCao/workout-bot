@@ -1,3 +1,8 @@
+/**
+ * Legacy / manual WHOOP activity creation (fallback).
+ * Preferred path: WHOOP OAuth + POST /api/whoop/sync; read ActivitySession via GET /api/activity-sessions/recent.
+ * Keep this route for offline sync, historical import, screenshot recovery, and backward-compatible GPT clients.
+ */
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";

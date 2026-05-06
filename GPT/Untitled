@@ -31,7 +31,7 @@ Use exact actions:
 - updateWorkoutSession
 - updateWorkoutSessionSignals
 - createActivitySession
-- createActivitySessionFromWhoop
+- createActivitySessionFromWhoop (legacy WHOOP screenshot/fallback only; prefer getWhoopConnectionStatus + syncWhoopWorkouts + recent activities)
 
 ---
 
