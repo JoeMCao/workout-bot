@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logApiRequestDebug } from "@/lib/api-debug";
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
 import { WhoopSyncError } from "@/lib/whoop/sync-error";
@@ -47,6 +48,8 @@ function mapLegacyWhoopSyncError(error: unknown) {
 export async function POST(request: Request) {
   const authError = requireApiKey(request);
   if (authError) return authError;
+
+  logApiRequestDebug(request, { operation: "whoop_sync_post" });
 
   const exposeWhoopSyncDetails = shouldExposeWhoopSyncDetails(request);
   const userId = request.headers.get("x-user-id")?.trim() ?? null;

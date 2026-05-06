@@ -66,10 +66,6 @@ export const updateSessionSchema = createSessionSchema
 export const createSetSchema = z.object({
   sessionId: z.string().trim().min(1),
   exerciseName: z.string().trim().min(1),
-  /** Session-level label (does not rename global Exercise). */
-  exerciseDisplayName: optionalTrimmedString,
-  /** Session-level execution notes; appended to existing row. Set-level `notes` stays on the set. */
-  exerciseNotes: optionalTrimmedString,
   setNumber: z.number().int().optional(),
   weight: z.number().optional(),
   reps: z.number().int().optional(),
@@ -77,36 +73,54 @@ export const createSetSchema = z.object({
   rir: z.number().optional(),
   painFlag: z.boolean().optional(),
   painNotes: optionalTrimmedString,
+  /** Qualitative execution context (grip, tempo, ROM, pain, etc.). Keep Exercise.name canonical. */
   notes: optionalTrimmedString,
   completedAt: optionalIsoDate
 });
 
-export const updateSessionExerciseSchema = z
+export const updateSetSchema = z
   .object({
-    displayName: z.string().trim().min(1).nullable().optional(),
-    notes: z.string().trim().min(1).optional(),
-    /** When true, `notes` replaces session exercise notes entirely. Default: append to existing. */
-    replaceNotes: z.boolean().optional(),
-    /** Explicitly clear all session exercise notes (ignores `notes`). */
-    clearNotes: z.boolean().optional()
+    exerciseName: z.string().trim().min(1).optional(),
+    setNumber: z.number().int().nullable().optional(),
+    weight: z.number().nullable().optional(),
+    reps: z.number().int().nullable().optional(),
+    rpe: z.number().nullable().optional(),
+    rir: z.number().nullable().optional(),
+    painFlag: z.boolean().optional(),
+    painNotes: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
+    completedAt: optionalIsoDate.optional()
   })
-  .strict()
+  .partial()
   .superRefine((body, ctx) => {
-    if (body.clearNotes && body.notes !== undefined) {
+    if (Object.keys(body).length === 0) {
       ctx.addIssue({
         code: "custom",
-        message: "Do not send `notes` together with `clearNotes`."
+        message: "Provide at least one field to update."
       });
     }
-    const hasPatch =
-      body.displayName !== undefined ||
-      body.notes !== undefined ||
-      body.clearNotes === true;
-    if (!hasPatch) {
+  });
+
+/** PATCH /api/sessions/:id/exercises/:exerciseId — bulk set corrections for one lift in one session. */
+export const patchSessionExerciseSetsSchema = z
+  .object({
+    exerciseName: z.string().trim().min(1).optional(),
+    appendNotes: z.string().trim().min(1).optional(),
+    replaceNotes: z.boolean().optional()
+  })
+  .superRefine((body, ctx) => {
+    const hasName = body.exerciseName !== undefined;
+    const hasAppend = body.appendNotes !== undefined;
+    if (!hasName && !hasAppend) {
       ctx.addIssue({
         code: "custom",
-        message:
-          "Provide at least one of: displayName, notes, or clearNotes: true."
+        message: "Provide exerciseName and/or appendNotes."
+      });
+    }
+    if (body.replaceNotes === true && !hasAppend) {
+      ctx.addIssue({
+        code: "custom",
+        message: "replaceNotes: true requires appendNotes."
       });
     }
   });

@@ -1,3 +1,4 @@
+import { logApiRequestDebug } from "@/lib/api-debug";
 import { requireApiKey } from "@/lib/auth";
 import { handleRouteError, json } from "@/lib/http";
 import { queryWhoopHealthContextDays } from "@/lib/whoop/health-context-query";
@@ -9,6 +10,8 @@ import { queryWhoopHealthContextDays } from "@/lib/whoop/health-context-query";
 export async function GET(request: Request) {
   const authError = requireApiKey(request);
   if (authError) return authError;
+
+  logApiRequestDebug(request, { operation: "whoop_health_context_get" });
 
   try {
     const url = new URL(request.url);

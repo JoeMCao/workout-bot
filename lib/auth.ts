@@ -1,9 +1,5 @@
+import { isDebugEnabled } from "@/lib/api-debug";
 import { errorJson } from "@/lib/http";
-
-function shouldDebugAuth(request: Request) {
-  const v = request.headers.get("x-debug-auth");
-  return v === "1" || v?.toLowerCase() === "true";
-}
 
 function safeAuthDebugLog(event: Record<string, unknown>) {
   // Never log secrets/tokens. This is intentionally minimal + boolean/length only.
@@ -16,7 +12,7 @@ export function requireApiKey(request: Request) {
     typeof expectedRaw === "string" ? expectedRaw.trim() : undefined;
 
   if (!expected) {
-    if (shouldDebugAuth(request)) {
+    if (isDebugEnabled(request)) {
       safeAuthDebugLog({
         phase: "auth_guard",
         ok: false,
@@ -42,7 +38,7 @@ export function requireApiKey(request: Request) {
 
   const match = token === expected;
 
-  if (shouldDebugAuth(request)) {
+  if (isDebugEnabled(request)) {
     const authMode =
       bearerToken != null
         ? "authorization_bearer"

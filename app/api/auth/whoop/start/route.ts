@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logApiRequestDebug } from "@/lib/api-debug";
 import {
   WHOOP_AUTHORIZATION_URL,
   WHOOP_SCOPES,
@@ -7,6 +8,8 @@ import {
 import { generateWhoopOAuthState } from "@/lib/whoop/oauth";
 
 export async function GET(request: NextRequest) {
+  logApiRequestDebug(request, { operation: "auth_whoop_start_get" });
+
   const { clientId, redirectUri } = getWhoopClientConfig(request);
   const state = generateWhoopOAuthState();
   const url = new URL(WHOOP_AUTHORIZATION_URL);

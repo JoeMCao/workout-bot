@@ -577,18 +577,16 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
-      "/api/session-exercises/{id}": {
+      "/api/sets/{id}": {
         patch: {
-          operationId: "updateSessionExercise",
-          summary:
-            "Update session-level exercise metadata (display label and notes) without changing sets or the global Exercise catalog",
+          operationId: "updateExerciseSet",
+          summary: "Update one logged set (including canonical exerciseName → reassign exerciseId for this set only)",
           parameters: [
             {
               name: "id",
               in: "path",
               required: true,
-              schema: { type: "string" },
-              description: "WorkoutSessionExercise id (from session exercise grouping in getRecentWorkoutSessions)."
+              schema: { type: "string" }
             }
           ],
           requestBody: {
@@ -596,21 +594,77 @@ export function buildOpenApiSpec(baseUrl: string) {
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/UpdateSessionExerciseRequest"
+                  $ref: "#/components/schemas/UpdateSetRequest"
                 }
               }
             }
           },
           responses: {
             "200": {
-              description: "Updated session exercise",
+              description: "Updated set",
               content: {
                 "application/json": {
                   schema: {
                     type: "object",
                     properties: {
-                      sessionExercise: {
-                        $ref: "#/components/schemas/WorkoutSessionExercise"
+                      set: {
+                        $ref: "#/components/schemas/ExerciseSet"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/sessions/{id}/exercises/{exerciseId}": {
+        patch: {
+          operationId: "patchSessionExerciseSets",
+          summary:
+            "Bulk-update all sets for one exercise in one session (reassign canonical exercise, append/replace notes on each set)",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+              description: "WorkoutSession id"
+            },
+            {
+              name: "exerciseId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+              description: "Current Exercise id for sets in this session"
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/PatchSessionExerciseSetsRequest"
+                }
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Updated sets",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      sessionId: { type: "string" },
+                      exerciseId: { type: "string" },
+                      updatedCount: { type: "integer" },
+                      sets: {
+                        type: "array",
+                        items: {
+                          $ref: "#/components/schemas/ExerciseSet"
+                        }
                       }
                     }
                   }
@@ -1167,17 +1221,8 @@ export function buildOpenApiSpec(baseUrl: string) {
             },
             notes: {
               type: "string",
-              description: "Set-specific note (one set only)."
-            },
-            exerciseDisplayName: {
-              type: "string",
               description:
-                "Optional. Session-level label for how the exercise was performed (does not rename the shared Exercise catalog)."
-            },
-            exerciseNotes: {
-              type: "string",
-              description:
-                "Optional. Session-level execution context (tempo, grip, etc.); appended to existing session exercise notes. Use `notes` for set-specific detail."
+                "Qualitative execution context for this set (grip, tempo, ROM, pain, assistance, etc.). Keep exerciseName canonical—do not encode variants in Exercise.name."
             },
             completedAt: {
               type: "string",
@@ -1185,52 +1230,50 @@ export function buildOpenApiSpec(baseUrl: string) {
             }
           }
         },
-        UpdateSessionExerciseRequest: {
+        UpdateSetRequest: {
           type: "object",
           description:
-            "At least one of displayName, notes, or clearNotes is required. By default, notes are appended to preserve prior context; use replaceNotes to overwrite.",
+            "At least one field required. Nullable fields may be set to null to clear. exerciseName finds or creates the canonical Exercise and updates this set’s exerciseId only.",
           properties: {
-            displayName: {
+            exerciseName: {
               type: "string",
-              nullable: true,
-              description:
-                "How this exercise was performed in this session; null clears the override (falls back to Exercise.name in UI)."
+              description: "Canonical exercise label (e.g. Pull-Up)"
             },
-            notes: {
+            setNumber: { type: "integer", nullable: true },
+            weight: { type: "number", nullable: true },
+            reps: { type: "integer", nullable: true },
+            rpe: { type: "number", nullable: true },
+            rir: { type: "number", nullable: true },
+            painFlag: { type: "boolean" },
+            painNotes: { type: "string", nullable: true },
+            notes: { type: "string", nullable: true },
+            completedAt: {
               type: "string",
-              description:
-                "Execution/context notes for this session’s exercise entry. Appended unless replaceNotes is true."
-            },
-            replaceNotes: {
-              type: "boolean",
-              description: "When true, notes replaces the stored session exercise notes entirely."
-            },
-            clearNotes: {
-              type: "boolean",
-              description:
-                "When true, clears all session exercise notes. Do not send notes in the same request."
+              format: "date-time"
             }
           },
           additionalProperties: false
         },
-        WorkoutSessionExercise: {
+        PatchSessionExerciseSetsRequest: {
           type: "object",
+          description:
+            "Provide exerciseName and/or appendNotes. When replaceNotes is true, each affected set’s notes becomes appendNotes exactly (requires appendNotes).",
           properties: {
-            id: { type: "string" },
-            sessionId: { type: "string" },
-            exerciseId: { type: "string" },
-            displayName: { type: "string", nullable: true },
-            notes: { type: "string", nullable: true },
-            exercise: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-                name: { type: "string", description: "Canonical catalog name" }
-              }
+            exerciseName: {
+              type: "string",
+              description: "Canonical name; reassigns all matching sets in this session to that Exercise"
             },
-            createdAt: { type: "string", format: "date-time" },
-            updatedAt: { type: "string", format: "date-time" }
-          }
+            appendNotes: {
+              type: "string",
+              description:
+                "When replaceNotes is false/omitted, appended to each set’s notes if not already present. When replaceNotes is true, becomes the full notes value for each set."
+            },
+            replaceNotes: {
+              type: "boolean",
+              description: "If true, requires appendNotes; replaces notes on every affected set."
+            }
+          },
+          additionalProperties: false
         },
         WorkoutSession: {
           type: "object",
@@ -1379,30 +1422,15 @@ export function buildOpenApiSpec(baseUrl: string) {
                         type: "string",
                         description: "Canonical Exercise.name"
                       },
-                      sessionExerciseId: {
-                        type: "string",
-                        nullable: true,
-                        description:
-                          "Id for updateSessionExercise; null if no metadata row exists yet."
-                      },
-                      displayName: {
-                        type: "string",
-                        nullable: true,
-                        description:
-                          "Session-specific label; UI falls back to name when null."
-                      },
-                      notes: {
-                        type: "string",
-                        nullable: true,
-                        description: "Session-level execution notes (not duplicated on each set)."
-                      },
                       sets: {
                         type: "array",
                         items: {
                           $ref: "#/components/schemas/ExerciseSet"
                         }
                       }
-                    }
+                    },
+                    description:
+                      "Grouped by exerciseId. Qualitative context lives on each ExerciseSet.notes."
                   }
                 }
               }

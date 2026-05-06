@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logApiRequestDebug } from "@/lib/api-debug";
 import { requireApiKey } from "@/lib/auth";
 import { backfillStrengthActivityShells } from "@/lib/backfill/strength-activity-shells";
 import { handleRouteError, json, parseJson } from "@/lib/http";
@@ -31,6 +32,8 @@ function shouldExposeWhoopSyncDetails(request: Request) {
 export async function POST(request: Request) {
   const authError = requireApiKey(request);
   if (authError) return authError;
+
+  logApiRequestDebug(request, { operation: "whoop_sync_and_backfill_post" });
 
   const exposeDetails = shouldExposeWhoopSyncDetails(request);
   const userId = request.headers.get("x-user-id")?.trim() ?? null;

@@ -3,8 +3,7 @@ import type {
   Exercise,
   ExerciseSet,
   Prisma,
-  WorkoutSession,
-  WorkoutSessionExercise
+  WorkoutSession
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -60,7 +59,6 @@ function activityWhereForTrainingLog(
 
 type WorkoutWithSets = WorkoutSession & {
   sets: Array<ExerciseSet & { exercise: Exercise }>;
-  sessionExercises: Array<WorkoutSessionExercise & { exercise: Exercise }>;
   linkedActivitySessions: ActivitySession[];
 };
 
@@ -136,11 +134,10 @@ export type ContextEvent = {
 };
 
 export type LatestStrengthExerciseBlock = {
-  sessionExerciseId: string | null;
   exerciseId: string;
-  canonicalName: string;
-  displayLabel: string;
-  notes: string | null;
+  name: string;
+  /** Non-empty set notes for this exercise in the session, de-duplicated and joined. */
+  notesSummary: string | null;
   setCount: number;
 };
 
@@ -300,28 +297,34 @@ function tagsForActivity(activity: ActivitySession): ContextTag[] {
   return uniqueTags(tags);
 }
 
-function exerciseSummary(
-  sets: Array<ExerciseSet & { exercise: Exercise }>,
-  sessionExercises: Array<
-    Pick<WorkoutSessionExercise, "exerciseId" | "displayName">
-  >
-) {
-  const meta = new Map(sessionExercises.map((row) => [row.exerciseId, row]));
+function exerciseSummary(sets: Array<ExerciseSet & { exercise: Exercise }>) {
   const labels: string[] = [];
   const seen = new Set<string>();
   for (const set of sets) {
     if (seen.has(set.exerciseId)) continue;
     seen.add(set.exerciseId);
-    const row = meta.get(set.exerciseId);
-    const label =
-      row?.displayName?.trim() && row.displayName.trim().length > 0
-        ? row.displayName.trim()
-        : set.exercise.name;
-    labels.push(label);
+    labels.push(set.exercise.name);
   }
   if (labels.length === 0) return "No sets logged";
   if (labels.length <= 3) return labels.join(", ");
   return `${labels.slice(0, 3).join(", ")} +${labels.length - 3} more`;
+}
+
+function aggregateSetNotesForExercise(
+  sets: Array<ExerciseSet & { exercise: Exercise }>,
+  exerciseId: string
+): string | null {
+  const chunks: string[] = [];
+  const seen = new Set<string>();
+  for (const s of sets) {
+    if (s.exerciseId !== exerciseId) continue;
+    const n = s.notes?.trim();
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    chunks.push(n);
+  }
+  if (chunks.length === 0) return null;
+  return chunks.join("\n\n");
 }
 
 function activityTitle(activity: ActivitySession) {
@@ -342,7 +345,7 @@ function workoutToLogItem(session: WorkoutWithSets): TrainingLogItem {
     dateKey: getLocalDateKey(session.startedAt),
     durationMinutes: workoutDuration(session),
     title: session.goal ?? session.sessionType ?? "Strength session",
-    details: exerciseSummary(session.sets, session.sessionExercises),
+    details: exerciseSummary(session.sets),
     intensity: session.energy ? `Energy ${session.energy}` : null,
     notes: session.notes ?? session.readinessNotes,
     source: "workout_api",
@@ -387,7 +390,6 @@ export async function getTrainingLog(filter: ActivityFilter = "all") {
           take: 250,
           include: {
             sets: { include: { exercise: true }, orderBy: { completedAt: "asc" } },
-            sessionExercises: { include: { exercise: true } },
             linkedActivitySessions: true
           }
         })
@@ -427,7 +429,6 @@ export async function getOverviewData() {
       where: { startedAt: { gte: weekStart } },
       include: {
         sets: { include: { exercise: true } },
-        sessionExercises: { include: { exercise: true } },
         linkedActivitySessions: true
       },
       orderBy: { startedAt: "desc" }
@@ -444,7 +445,6 @@ export async function getOverviewData() {
       take: 8,
       include: {
         sets: { include: { exercise: true }, orderBy: { completedAt: "asc" } },
-        sessionExercises: { include: { exercise: true } },
         linkedActivitySessions: true
       }
     }),
@@ -466,7 +466,6 @@ export async function getOverviewData() {
     const detail = await prisma.workoutSession.findUnique({
       where: { id: head.id },
       include: {
-        sessionExercises: { include: { exercise: true } },
         sets: { include: { exercise: true }, orderBy: { completedAt: "asc" } }
       }
     });
@@ -484,19 +483,11 @@ export async function getOverviewData() {
         counts.set(s.exerciseId, (counts.get(s.exerciseId) ?? 0) + 1);
       }
       latestStrengthExercises = order.map((eid) => {
-        const row = detail.sessionExercises.find((r) => r.exerciseId === eid);
         const sample = detail.sets.find((s) => s.exerciseId === eid)!;
-        const canonical = sample.exercise.name;
-        const displayLabel =
-          row?.displayName?.trim() && row.displayName.trim().length > 0
-            ? row.displayName.trim()
-            : canonical;
         return {
-          sessionExerciseId: row?.id ?? null,
           exerciseId: eid,
-          canonicalName: canonical,
-          displayLabel,
-          notes: row?.notes ?? null,
+          name: sample.exercise.name,
+          notesSummary: aggregateSetNotesForExercise(detail.sets, eid),
           setCount: counts.get(eid) ?? 0
         };
       });

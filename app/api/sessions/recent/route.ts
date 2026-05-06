@@ -62,9 +62,6 @@ export async function GET(request: Request) {
           include: {
             exercise: true
           }
-        },
-        sessionExercises: {
-          include: { exercise: true }
         }
       }
     });

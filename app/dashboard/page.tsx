@@ -46,7 +46,7 @@ export default async function DashboardPage() {
               overview.latestStrengthExercises.length > 0 ? (
                 <div className="list" style={{ marginTop: 16 }}>
                   <p className="eyebrow" style={{ marginBottom: 8 }}>
-                    Exercises (session labels)
+                    Exercises
                   </p>
                   {overview.latestStrengthExercises.map((ex) => (
                     <div
@@ -55,19 +55,18 @@ export default async function DashboardPage() {
                       style={{ gridTemplateColumns: "1fr", textAlign: "left" }}
                     >
                       <div>
-                        <div className="row-title">{ex.displayLabel}</div>
+                        <div className="row-title">{ex.name}</div>
                         <div className="row-meta">
                           {ex.setCount} set{ex.setCount === 1 ? "" : "s"}
-                          {ex.canonicalName !== ex.displayLabel
-                            ? ` · catalog: ${ex.canonicalName}`
-                            : ""}
                         </div>
-                        {ex.notes ? (
+                        {ex.notesSummary ? (
                           <details style={{ marginTop: 8 }}>
                             <summary className="muted" style={{ cursor: "pointer" }}>
-                              Exercise notes
+                              Set notes (summary)
                             </summary>
-                            <p style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{ex.notes}</p>
+                            <p style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>
+                              {ex.notesSummary}
+                            </p>
                           </details>
                         ) : null}
                       </div>

@@ -1,6 +1,5 @@
 /**
  * Pure serialization for GET /api/sessions/recent — no Prisma imports.
- * Keeps response JSON-safe and tolerant of missing WorkoutSessionExercise rows.
  */
 
 export type RecentSetPayload = {
@@ -23,9 +22,6 @@ export type RecentSetPayload = {
 export type RecentExercisePayload = {
   id: string;
   name: string;
-  sessionExerciseId: string | null;
-  displayName: string | null;
-  notes: string | null;
   sets: RecentSetPayload[];
 };
 
@@ -46,14 +42,6 @@ type SetRowInput = {
   completedAt: Date;
   createdAt: Date;
   updatedAt: Date;
-  exercise: ExerciseRef | null;
-};
-
-type SessionExerciseRowInput = {
-  id: string;
-  exerciseId: string;
-  displayName: string | null;
-  notes: string | null;
   exercise: ExerciseRef | null;
 };
 
@@ -90,7 +78,6 @@ export type WorkoutSessionRecentInput = {
   createdAt: Date;
   updatedAt: Date;
   sets?: SetRowInput[] | null;
-  sessionExercises?: SessionExerciseRowInput[] | null;
 };
 
 export type RecentWorkoutSessionPayload = ReturnType<
@@ -121,17 +108,13 @@ function serializeSetRow(set: SetRowInput): RecentSetPayload {
   };
 }
 
-/**
- * Groups sets by exerciseId, merges WorkoutSessionExercise metadata, adds metadata-only exercises with empty sets.
- */
+/** Group sets by exerciseId; qualitative context lives on each set’s `notes`. */
 export function buildRecentExercisesPayload(
-  sets: SetRowInput[] | null | undefined,
-  sessionExercises: SessionExerciseRowInput[] | null | undefined
+  sets: SetRowInput[] | null | undefined
 ): RecentExercisePayload[] {
   const safeSets = sets ?? [];
-  const safeMeta = sessionExercises ?? [];
-
   const map = new Map<string, RecentExercisePayload>();
+  const orderIds: string[] = [];
 
   for (const set of safeSets) {
     const exRef = set.exercise;
@@ -139,54 +122,15 @@ export function buildRecentExercisesPayload(
       continue;
     }
 
-    const block =
-      map.get(set.exerciseId) ??
-      ({
+    if (!map.has(set.exerciseId)) {
+      map.set(set.exerciseId, {
         id: exRef.id,
         name: exRef.name,
-        sessionExerciseId: null,
-        displayName: null,
-        notes: null,
         sets: []
-      } satisfies RecentExercisePayload);
-
-    block.sets.push(serializeSetRow(set));
-    map.set(set.exerciseId, block);
-  }
-
-  for (const row of safeMeta) {
-    const block = map.get(row.exerciseId);
-    const exRef = row.exercise;
-
-    if (block) {
-      block.sessionExerciseId = row.id;
-      block.displayName = row.displayName ?? null;
-      block.notes = row.notes ?? null;
-      continue;
+      });
+      orderIds.push(set.exerciseId);
     }
-
-    if (!exRef?.id) {
-      continue;
-    }
-
-    map.set(row.exerciseId, {
-      id: exRef.id,
-      name: exRef.name,
-      sessionExerciseId: row.id,
-      displayName: row.displayName ?? null,
-      notes: row.notes ?? null,
-      sets: []
-    });
-  }
-
-  const orderIds: string[] = [];
-  for (const set of safeSets) {
-    if (!map.has(set.exerciseId)) continue;
-    if (!orderIds.includes(set.exerciseId)) orderIds.push(set.exerciseId);
-  }
-  for (const row of safeMeta) {
-    if (!map.has(row.exerciseId)) continue;
-    if (!orderIds.includes(row.exerciseId)) orderIds.push(row.exerciseId);
+    map.get(set.exerciseId)!.sets.push(serializeSetRow(set));
   }
 
   return orderIds
@@ -195,10 +139,7 @@ export function buildRecentExercisesPayload(
 }
 
 export function serializeWorkoutSessionForRecentApi(session: WorkoutSessionRecentInput) {
-  const exercises = buildRecentExercisesPayload(
-    session.sets ?? [],
-    session.sessionExercises ?? []
-  );
+  const exercises = buildRecentExercisesPayload(session.sets ?? []);
 
   return {
     id: session.id,

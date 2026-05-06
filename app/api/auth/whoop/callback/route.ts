@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logApiRequestDebug } from "@/lib/api-debug";
 import { getWhoopClientConfig } from "@/lib/whoop/config";
 import {
   exchangeWhoopAuthorizationCode,
@@ -24,6 +25,16 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const expectedState = request.cookies.get("whoop_oauth_state")?.value;
+
+  logApiRequestDebug(request, {
+    operation: "auth_whoop_callback_get",
+    oauthError: request.nextUrl.searchParams.get("error") ?? undefined,
+    hasCodeParam: Boolean(code),
+    hasStateParam: Boolean(state),
+    stateMatchesCookie: Boolean(
+      code && state && expectedState && state === expectedState
+    )
+  });
 
   if (!code || !state || !expectedState || state !== expectedState) {
     const response = dashboardRedirect(request, "error");
