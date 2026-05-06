@@ -12,12 +12,25 @@ export const WHOOP_SCOPES = [
   "offline"
 ];
 
+/** Public origin for OAuth redirect_uri when WHOOP_REDIRECT_URI is unset (Vercel uses x-forwarded-proto). */
+function inferPublicOrigin(request: Request) {
+  const url = new URL(request.url);
+  const forwarded = request.headers.get("x-forwarded-proto");
+  const proto = forwarded?.split(",")[0]?.trim();
+  if (proto === "https" || proto === "http") {
+    return `${proto}://${url.host}`;
+  }
+  return url.origin;
+}
+
 export function getWhoopClientConfig(request?: Request) {
   const clientId = process.env.WHOOP_CLIENT_ID;
   const clientSecret = process.env.WHOOP_CLIENT_SECRET;
   const redirectUri =
     process.env.WHOOP_REDIRECT_URI ??
-    (request ? `${new URL(request.url).origin}/api/auth/whoop/callback` : undefined);
+    (request
+      ? `${inferPublicOrigin(request)}/api/auth/whoop/callback`
+      : undefined);
 
   if (!clientId) {
     throw new Error("WHOOP_CLIENT_ID is not configured");

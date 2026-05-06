@@ -93,6 +93,16 @@ Start the app:
 npm run dev
 ```
 
+### WHOOP OAuth on localhost
+
+WHOOP allows multiple redirect URLs on one app. Add **`http://localhost:3000/api/auth/whoop/callback`** in the WHOOP developer console (in addition to your production `https://…/callback` if you use both).
+
+For local testing, set **`WHOOP_REDIRECT_URI=http://localhost:3000/api/auth/whoop/callback`** in `.env`. If this variable still points at production, the authorize request will send the production URL while you are on `localhost`, and WHOOP will reject it unless that URL is the only one registered.
+
+Then open **`http://localhost:3000/api/auth/whoop/start`**, sign in with WHOOP, and you should return to **`http://localhost:3000/dashboard`**. Tokens are written to whatever database **`DATABASE_URL`** uses (local Postgres or a shared cloud DB).
+
+On Vercel, either set **`WHOOP_REDIRECT_URI`** to your real **`https://…/callback`**, or omit it and rely on the request host plus **`x-forwarded-proto`** so the default callback uses HTTPS behind the proxy.
+
 ## Deployment
 
 Deploy to Vercel and set these environment variables:
