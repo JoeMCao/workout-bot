@@ -333,18 +333,15 @@ export function buildOpenApiSpec(baseUrl: string) {
     info: {
       title: "Workout Bot API",
       version: "0.1.0",
-      description: "Minimal workout logging API for a Custom GPT gym assistant."
+      description:
+        "Minimal workout logging API for a Custom GPT gym assistant. Authentication: set the same secret as server env `WORKOUT_API_KEY`—either as an HTTP Bearer token (`Authorization: Bearer <WORKOUT_API_KEY>`) or as header `x-api-key: <WORKOUT_API_KEY>`. In ChatGPT Actions, use API key auth with type Bearer and paste only the raw secret (not the word Bearer)."
     },
     servers: [
       {
         url: baseUrl
       }
     ],
-    security: [
-      {
-        bearerAuth: []
-      }
-    ],
+    security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
     paths: {
       "/api/sessions": {
         post: {
@@ -1095,7 +1092,14 @@ export function buildOpenApiSpec(baseUrl: string) {
       securitySchemes: {
         bearerAuth: {
           type: "http",
-          scheme: "bearer"
+          scheme: "bearer",
+          description: "Use the raw `WORKOUT_API_KEY` value (no `Bearer ` prefix in the secret itself)."
+        },
+        apiKeyAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "x-api-key",
+          description: "Same value as `WORKOUT_API_KEY` when not using Authorization Bearer."
         }
       },
       schemas: {

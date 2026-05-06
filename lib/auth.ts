@@ -30,7 +30,7 @@ export function requireApiKey(request: Request) {
   const authorization = request.headers.get("authorization");
   const xApiKey = request.headers.get("x-api-key");
   const bearerMatch = authorization?.match(/^Bearer\s+(.+)$/i);
-  const bearerToken = bearerMatch?.[1];
+  const bearerToken = bearerMatch?.[1]?.trim();
 
   // Support common caller formats:
   // - Authorization: Bearer <key>  (preferred)
