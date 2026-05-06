@@ -1,6 +1,8 @@
 import { requireApiKey } from "@/lib/auth";
 import { handleRouteError, json, parseLimit } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { serializeRecentWorkoutSessionsForApi } from "@/lib/sessions/recent-response";
+import { Prisma } from "@prisma/client";
 
 function databaseHostLabel() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -17,17 +19,39 @@ function databaseHostLabel() {
   }
 }
 
+function logRecent(line: Record<string, unknown>) {
+  console.info(
+    JSON.stringify({
+      route: "/api/sessions/recent",
+      ...line
+    })
+  );
+}
+
+function logRecentError(line: Record<string, unknown>) {
+  console.error(
+    JSON.stringify({
+      route: "/api/sessions/recent",
+      ...line
+    })
+  );
+}
+
 export async function GET(request: Request) {
   const authError = requireApiKey(request);
   if (authError) return authError;
 
+  const { searchParams } = new URL(request.url);
+  const limit = parseLimit(searchParams.get("limit"));
+
   try {
-    const { searchParams } = new URL(request.url);
-    const limit = parseLimit(searchParams.get("limit"));
-    console.info("[sessions/recent] endpoint hit", {
+    logRecent({
+      phase: "request",
       limit,
       database: databaseHostLabel()
     });
+
+    logRecent({ phase: "query_start", limit });
 
     const sessions = await prisma.workoutSession.findMany({
       orderBy: { startedAt: "desc" },
@@ -44,89 +68,39 @@ export async function GET(request: Request) {
         }
       }
     });
+
+    logRecent({
+      phase: "query_success",
+      limit,
+      count: sessions.length
+    });
+
     const latestSession = sessions[0];
     const latestExerciseCount = latestSession
       ? new Set(latestSession.sets.map((set) => set.exerciseId)).size
       : 0;
     const latestSetCount = latestSession?.sets.length ?? 0;
 
-    console.info("[sessions/recent] query result", {
-      sessionsFound: sessions.length,
-      latestSessionId: latestSession?.id ?? null,
-      startedAt: latestSession?.startedAt?.toISOString() ?? null,
-      endedAt: latestSession?.endedAt?.toISOString() ?? null,
-      relatedExercises: latestExerciseCount,
-      relatedSets: latestSetCount
+    logRecent({
+      phase: "serialization_start",
+      limit,
+      count: sessions.length
     });
 
-    const mappedSessions = sessions.map((session) => {
-      const metaByExerciseId = new Map(
-        session.sessionExercises.map((row) => [row.exerciseId, row])
-      );
+    const mappedSessions = serializeRecentWorkoutSessionsForApi(sessions);
 
-      const exercises = new Map<
-        string,
-        {
-          id: string;
-          name: string;
-          sessionExerciseId: string | null;
-          displayName: string | null;
-          notes: string | null;
-          sets: Array<{
-            id: string;
-            sessionId: string;
-            exerciseId: string;
-            setNumber: number | null;
-            weight: number | null;
-            reps: number | null;
-            rpe: number | null;
-            rir: number | null;
-            painFlag: boolean;
-            painNotes: string | null;
-            notes: string | null;
-            completedAt: Date;
-            createdAt: Date;
-            updatedAt: Date;
-          }>;
-        }
-      >();
+    logRecent({
+      phase: "serialization_done",
+      limit,
+      count: mappedSessions.length
+    });
 
-      for (const set of session.sets) {
-        const meta = metaByExerciseId.get(set.exerciseId);
-        const exercise = exercises.get(set.exerciseId) ?? {
-          id: set.exercise.id,
-          name: set.exercise.name,
-          sessionExerciseId: meta?.id ?? null,
-          displayName: meta?.displayName ?? null,
-          notes: meta?.notes ?? null,
-          sets: []
-        };
-
-        exercise.sets.push({
-          id: set.id,
-          sessionId: set.sessionId,
-          exerciseId: set.exerciseId,
-          setNumber: set.setNumber,
-          weight: set.weight,
-          reps: set.reps,
-          rpe: set.rpe,
-          rir: set.rir,
-          painFlag: set.painFlag,
-          painNotes: set.painNotes,
-          notes: set.notes,
-          completedAt: set.completedAt,
-          createdAt: set.createdAt,
-          updatedAt: set.updatedAt
-        });
-        exercises.set(set.exerciseId, exercise);
-      }
-
-      return {
-        ...session,
-        sets: undefined,
-        sessionExercises: undefined,
-        exercises: Array.from(exercises.values())
-      };
+    logRecent({
+      phase: "response_ready",
+      limit,
+      latestSessionId: latestSession?.id ?? null,
+      relatedExercises: latestExerciseCount,
+      relatedSets: latestSetCount
     });
 
     return json({
@@ -136,7 +110,21 @@ export async function GET(request: Request) {
           : undefined,
       sessions: mappedSessions
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const prismaCode =
+      error instanceof Prisma.PrismaClientKnownRequestError
+        ? error.code
+        : undefined;
+
+    logRecentError({
+      phase: "error",
+      limit,
+      message: err.message,
+      stack: err.stack ?? null,
+      prismaCode: prismaCode ?? null
+    });
+
     return handleRouteError(error);
   }
 }
