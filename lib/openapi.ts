@@ -96,6 +96,7 @@ const activityTypeEnum = [
   "mobility",
   "sauna",
   "cold_plunge",
+  "strength",
   "other"
 ] as const;
 
@@ -114,13 +115,26 @@ const workoutSessionTimeSourceEnum = ["api_default", "user_provided"] as const;
 const activitySessionTimeSourceEnum = [
   "api_default",
   "user_provided",
-  "whoop_screenshot"
+  "whoop_screenshot",
+  "whoop_api"
 ] as const;
 
 const activitySessionCanonicalMetricProperties = {
   modality: {
     type: "string",
     nullable: true
+  },
+  sourceActivityType: {
+    type: "string",
+    nullable: true,
+    description:
+      "Original vendor activity label (e.g. WHOOP sport_name). Canonical category is `type` + `modality`."
+  },
+  rawPayloadJson: {
+    type: "object",
+    additionalProperties: true,
+    nullable: true,
+    description: "Optional embedded vendor payload (e.g. full WHOOP workout JSON)."
   },
   endedAt: {
     type: "string",
@@ -211,6 +225,12 @@ const activitySessionCanonicalMetricProperties = {
   relatedWorkoutSessionId: {
     type: "string",
     nullable: true
+  },
+  syncStatus: {
+    type: "string",
+    nullable: true,
+    description:
+      "e.g. needs_review when WHOOP strength could not be auto-linked to a WorkoutSession."
   }
 };
 
@@ -1271,6 +1291,12 @@ export function buildOpenApiSpec(baseUrl: string) {
               type: "integer",
               minimum: 0,
               description: "WHOOP workout mappings stored for this deployment"
+            },
+            needsReviewActivityCount: {
+              type: "integer",
+              minimum: 0,
+              description:
+                "Activity sessions with syncStatus=needs_review (strength WHOOP without a unique WorkoutSession match)."
             }
           },
           required: [
@@ -1278,7 +1304,8 @@ export function buildOpenApiSpec(baseUrl: string) {
             "lastSyncAt",
             "lastSyncError",
             "expiresAt",
-            "workoutCount"
+            "workoutCount",
+            "needsReviewActivityCount"
           ]
         },
         WhoopSyncRequest: {
@@ -1298,9 +1325,15 @@ export function buildOpenApiSpec(baseUrl: string) {
             fetched: { type: "integer", minimum: 0 },
             inserted: { type: "integer", minimum: 0 },
             updated: { type: "integer", minimum: 0 },
-            skipped: { type: "integer", minimum: 0 }
+            skipped: { type: "integer", minimum: 0 },
+            needsReview: {
+              type: "integer",
+              minimum: 0,
+              description:
+                "Count of workouts in this sync batch written as strength ActivitySession with needs_review."
+            }
           },
-          required: ["fetched", "inserted", "updated", "skipped"]
+          required: ["fetched", "inserted", "updated", "skipped", "needsReview"]
         }
       }
     }

@@ -2,6 +2,7 @@ import type {
   ActivitySession,
   Exercise,
   ExerciseSet,
+  Prisma,
   WorkoutSession
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +13,11 @@ import {
   getStartOfLocalWeekUtc
 } from "@/lib/time";
 import { getWhoopStatus } from "@/lib/whoop/sync";
+
+/** Activity rows that are not shells linked to a WorkoutSession (avoids duplicate log/overview lines). */
+const standaloneActivityWhere = {
+  relatedWorkoutSessionId: null
+} satisfies Prisma.ActivitySessionWhereInput;
 
 export const activityFilters = [
   "all",
@@ -35,6 +41,18 @@ export const cardioActivityTypes = [
   "swim",
   "bike"
 ] as const;
+
+function activityWhereForTrainingLog(
+  filter: ActivityFilter
+): Prisma.ActivitySessionWhereInput {
+  if (filter === "all") {
+    return standaloneActivityWhere;
+  }
+  if (filter === "cardio") {
+    return { ...standaloneActivityWhere, type: { in: [...cardioActivityTypes] } };
+  }
+  return { ...standaloneActivityWhere, type: filter };
+}
 
 type WorkoutWithSets = WorkoutSession & {
   sets: Array<ExerciseSet & { exercise: Exercise }>;
@@ -344,12 +362,7 @@ export async function getTrainingLog(filter: ActivityFilter = "all") {
       : Promise.resolve([]),
     includeActivities
       ? prisma.activitySession.findMany({
-          where:
-            filter === "all"
-              ? undefined
-              : filter === "cardio"
-                ? { type: { in: [...cardioActivityTypes] } }
-                : { type: filter },
+          where: activityWhereForTrainingLog(filter),
           orderBy: { startedAt: "desc" },
           take: 250
         })
@@ -366,14 +379,14 @@ export async function getOverviewData() {
 
   const [
     totalWorkouts,
-    totalActivities,
+    standaloneActivityCount,
     workoutsThisWeek,
     activitiesThisWeek,
     recentWorkouts,
     recentActivities
   ] = await Promise.all([
     prisma.workoutSession.count(),
-    prisma.activitySession.count(),
+    prisma.activitySession.count({ where: standaloneActivityWhere }),
     prisma.workoutSession.findMany({
       where: { startedAt: { gte: weekStart } },
       include: {
@@ -383,7 +396,10 @@ export async function getOverviewData() {
       orderBy: { startedAt: "desc" }
     }),
     prisma.activitySession.findMany({
-      where: { startedAt: { gte: weekStart } },
+      where: {
+        ...standaloneActivityWhere,
+        startedAt: { gte: weekStart }
+      },
       orderBy: { startedAt: "desc" }
     }),
     prisma.workoutSession.findMany({
@@ -395,6 +411,7 @@ export async function getOverviewData() {
       }
     }),
     prisma.activitySession.findMany({
+      where: standaloneActivityWhere,
       orderBy: { startedAt: "desc" },
       take: 12
     })
@@ -421,7 +438,7 @@ export async function getOverviewData() {
   return {
     latest: latestItems[0] ?? null,
     totals: {
-      sessions: totalWorkouts + totalActivities,
+      sessions: totalWorkouts + standaloneActivityCount,
       strength: totalWorkouts,
       cardio: await prisma.activitySession.count({
         where: { type: { in: [...cardioActivityTypes] } }
@@ -567,6 +584,7 @@ export async function getContextTimeline() {
       take: 200
     }),
     prisma.activitySession.findMany({
+      where: standaloneActivityWhere,
       orderBy: { startedAt: "desc" },
       take: 200
     })

@@ -120,6 +120,14 @@ Run production migrations when needed:
 npx prisma migrate deploy
 ```
 
+One-time **Phase 1** backfill: create `ActivitySession` shells linked to existing `WorkoutSession` rows that do not have one yet (idempotent):
+
+```bash
+npm run backfill:strength-activities
+```
+
+See `docs/WHOOP_DATA_MODEL_PLAN.md` for context.
+
 ## Custom GPT Action Setup
 
 1. Deploy the app to Vercel.

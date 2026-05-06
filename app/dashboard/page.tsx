@@ -126,6 +126,16 @@ export default async function DashboardPage() {
               <span className="row-title">{formatOptionalDate(overview.whoop.lastSyncAt)}</span>
               <span className="muted">last sync</span>
             </div>
+            {overview.whoop.needsReviewActivityCount > 0 ? (
+              <div className="metric" style={{ gridColumn: "1 / -1" }}>
+                <span className="metric-value" style={{ color: "#b45309" }}>
+                  {overview.whoop.needsReviewActivityCount}
+                </span>
+                <span className="muted">
+                  strength WHOOP activities need a manual link (no single matching workout)
+                </span>
+              </div>
+            ) : null}
           </div>
           {overview.whoop.expiresAt ? (
             <p className="row-meta" style={{ marginTop: 12 }}>

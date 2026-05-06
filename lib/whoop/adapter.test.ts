@@ -36,6 +36,8 @@ test("maps WHOOP workout payload into ActivitySession canonical fields", () => {
   const activity = whoopWorkoutToActivityData(workout);
 
   assert.equal(activity.type, "run");
+  assert.equal(activity.modality, "run");
+  assert.equal(activity.sourceActivityType, "running");
   assert.equal(activity.source, "whoop_api");
   assert.equal(activity.timeSource, "whoop_api");
   assert.equal(activity.durationMinutes, 60);
@@ -46,4 +48,22 @@ test("maps WHOOP workout payload into ActivitySession canonical fields", () => {
   assert.equal(activity.elevationGainMeters, 46.64384460449);
   assert.equal(activity.elevationLossMeters, undefined);
   assert.equal(activity.zone2Minutes, 15);
+  assert.ok(activity.rawPayloadJson && typeof activity.rawPayloadJson === "object");
+});
+
+test("maps WHOOP strength-like sports to type strength and preserves source label", () => {
+  const ff = whoopWorkoutToActivityData({
+    ...workout,
+    sport_name: "Functional Fitness"
+  });
+  assert.equal(ff.type, "strength");
+  assert.equal(ff.modality, "functional_fitness");
+  assert.equal(ff.sourceActivityType, "Functional Fitness");
+
+  const wl = whoopWorkoutToActivityData({
+    ...workout,
+    sport_name: "Weightlifting"
+  });
+  assert.equal(wl.type, "strength");
+  assert.equal(wl.modality, "weightlifting");
 });

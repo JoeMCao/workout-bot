@@ -1,79 +1,214 @@
+import type { ActivitySession, WhoopWorkoutMapping } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getServerNow } from "@/lib/time";
+import {
+  activitySyncStatus,
+  whoopWorkoutIsStrengthLike,
+  whoopWorkoutToActivityData,
+  whoopWorkoutToActivitySessionUpdateInput
+} from "./adapter";
 import { getWhoopClientConfig } from "./config";
 import { fetchWhoopWorkoutPage } from "./client";
 import { getValidWhoopAccessToken } from "./oauth";
-import { whoopWorkoutToActivityData } from "./adapter";
+import { strengthUnlinkedResyncSyncStatusDecision } from "./strength-resync-sync-status";
+import { resolveWhoopStrengthWorkoutMatch } from "./strength-match";
 import type { WhoopWorkout } from "./types";
 
-type SyncResult = {
+export type SyncResult = {
   fetched: number;
   inserted: number;
   updated: number;
   skipped: number;
+  /** WHOOP rows newly written with syncStatus=needs_review in this batch. */
+  needsReview: number;
 };
 
 function rawWorkout(workout: WhoopWorkout) {
   return workout as unknown as Prisma.InputJsonValue;
 }
 
-async function upsertWhoopWorkout(connectionId: string, workout: WhoopWorkout) {
-  const data = whoopWorkoutToActivityData(workout);
-  const existing = await prisma.whoopWorkoutMapping.findUnique({
+type UpsertOutcome = { action: "inserted" | "updated"; needsReview: boolean };
+
+async function resyncExistingMappedActivity(
+  workout: WhoopWorkout,
+  mapping: WhoopWorkoutMapping,
+  activity: ActivitySession,
+  mappingBase: {
+    connectionId: string;
+    whoopUpdatedAt: Date;
+    raw: Prisma.InputJsonValue;
+  }
+): Promise<UpsertOutcome> {
+  const isStrength = whoopWorkoutIsStrengthLike(workout);
+
+  const updateMapping = () =>
+    prisma.whoopWorkoutMapping.update({
+      where: { id: mapping.id },
+      data: mappingBase
+    });
+
+  if (!isStrength) {
+    await prisma.$transaction([
+      prisma.activitySession.update({
+        where: { id: activity.id },
+        data: whoopWorkoutToActivitySessionUpdateInput(workout, { syncStatus: null })
+      }),
+      updateMapping()
+    ]);
+    return { action: "updated", needsReview: false };
+  }
+
+  if (activity.relatedWorkoutSessionId) {
+    await prisma.$transaction([
+      prisma.activitySession.update({
+        where: { id: activity.id },
+        data: whoopWorkoutToActivitySessionUpdateInput(workout, { syncStatus: null })
+      }),
+      updateMapping()
+    ]);
+    return { action: "updated", needsReview: false };
+  }
+
+  const match = await resolveWhoopStrengthWorkoutMatch(new Date(workout.start));
+  const decision = strengthUnlinkedResyncSyncStatusDecision({
+    match,
+    activityId: activity.id
+  });
+
+  if (decision === "clear" && match.kind === "unique") {
+    await prisma.$transaction(async (tx) => {
+      await tx.activitySession.update({
+        where: { id: activity.id },
+        data: {
+          ...whoopWorkoutToActivitySessionUpdateInput(workout, { syncStatus: null }),
+          relatedWorkoutSession: { connect: { id: match.workout.id } }
+        }
+      });
+      await tx.whoopWorkoutMapping.update({
+        where: { id: mapping.id },
+        data: mappingBase
+      });
+    });
+    return { action: "updated", needsReview: false };
+  }
+
+  await prisma.$transaction([
+    prisma.activitySession.update({
+      where: { id: activity.id },
+      data: {
+        ...whoopWorkoutToActivitySessionUpdateInput(workout, {}),
+        syncStatus: activitySyncStatus.needsReview
+      }
+    }),
+    updateMapping()
+  ]);
+  return { action: "updated", needsReview: false };
+}
+
+async function upsertWhoopWorkout(
+  connectionId: string,
+  workout: WhoopWorkout
+): Promise<UpsertOutcome> {
+  let mapping = await prisma.whoopWorkoutMapping.findUnique({
     where: { whoopWorkoutId: workout.id }
   });
 
-  if (existing?.activitySessionId) {
-    await prisma.$transaction([
-      prisma.activitySession.update({
-        where: { id: existing.activitySessionId },
-        data
-      }),
-      prisma.whoopWorkoutMapping.update({
-        where: { id: existing.id },
-        data: {
-          connectionId,
-          whoopUpdatedAt: new Date(workout.updated_at),
-          raw: rawWorkout(workout)
-        }
-      })
-    ]);
+  const mappingBase = {
+    connectionId,
+    whoopUpdatedAt: new Date(workout.updated_at),
+    raw: rawWorkout(workout)
+  };
 
-    return "updated" as const;
+  if (mapping?.activitySessionId) {
+    const activity = await prisma.activitySession.findUnique({
+      where: { id: mapping.activitySessionId }
+    });
+    if (activity) {
+      return resyncExistingMappedActivity(workout, mapping, activity, mappingBase);
+    }
+    await prisma.whoopWorkoutMapping.update({
+      where: { id: mapping.id },
+      data: { activitySessionId: null }
+    });
+    mapping = await prisma.whoopWorkoutMapping.findUnique({
+      where: { whoopWorkoutId: workout.id }
+    });
   }
 
-  if (existing) {
-    await prisma.$transaction(async (tx) => {
-      const activity = await tx.activitySession.create({ data });
+  const existing = mapping;
+
+  const baseCreate = whoopWorkoutToActivityData(workout);
+  const isStrength = whoopWorkoutIsStrengthLike(workout);
+
+  async function attachMapping(activityId: string, tx: Prisma.TransactionClient) {
+    if (existing) {
       await tx.whoopWorkoutMapping.update({
         where: { id: existing.id },
+        data: { ...mappingBase, activitySessionId: activityId }
+      });
+    } else {
+      await tx.whoopWorkoutMapping.create({
         data: {
-          connectionId,
-          activitySessionId: activity.id,
-          whoopUpdatedAt: new Date(workout.updated_at),
-          raw: rawWorkout(workout)
+          ...mappingBase,
+          whoopWorkoutId: workout.id,
+          activitySessionId: activityId
         }
       });
-    });
+    }
+  }
 
-    return "updated" as const;
+  if (!isStrength) {
+    await prisma.$transaction(async (tx) => {
+      const activity = await tx.activitySession.create({
+        data: { ...baseCreate, syncStatus: null }
+      });
+      await attachMapping(activity.id, tx);
+    });
+    return { action: existing ? "updated" : "inserted", needsReview: false };
+  }
+
+  const match = await resolveWhoopStrengthWorkoutMatch(new Date(workout.start));
+
+  if (match.kind === "unique") {
+    const shell = match.shell;
+    if (shell) {
+      await prisma.$transaction(async (tx) => {
+        await tx.activitySession.update({
+          where: { id: shell.id },
+          data: {
+            ...whoopWorkoutToActivitySessionUpdateInput(workout, { syncStatus: null }),
+            relatedWorkoutSession: { connect: { id: match.workout.id } }
+          }
+        });
+        await attachMapping(shell.id, tx);
+      });
+      return { action: existing ? "updated" : "inserted", needsReview: false };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const activity = await tx.activitySession.create({
+        data: {
+          ...baseCreate,
+          syncStatus: null,
+          relatedWorkoutSession: { connect: { id: match.workout.id } }
+        }
+      });
+      await attachMapping(activity.id, tx);
+    });
+    return { action: existing ? "updated" : "inserted", needsReview: false };
   }
 
   await prisma.$transaction(async (tx) => {
-    const activity = await tx.activitySession.create({ data });
-    await tx.whoopWorkoutMapping.create({
+    const activity = await tx.activitySession.create({
       data: {
-        connectionId,
-        whoopWorkoutId: workout.id,
-        whoopUpdatedAt: new Date(workout.updated_at),
-        activitySessionId: activity.id,
-        raw: rawWorkout(workout)
+        ...baseCreate,
+        syncStatus: activitySyncStatus.needsReview
       }
     });
+    await attachMapping(activity.id, tx);
   });
-
-  return "inserted" as const;
+  return { action: existing ? "updated" : "inserted", needsReview: true };
 }
 
 export async function syncWhoopWorkouts({
@@ -96,7 +231,8 @@ export async function syncWhoopWorkouts({
     fetched: 0,
     inserted: 0,
     updated: 0,
-    skipped: 0
+    skipped: 0,
+    needsReview: 0
   };
   let nextToken: string | undefined;
   let page = 0;
@@ -118,8 +254,9 @@ export async function syncWhoopWorkouts({
           continue;
         }
 
-        const action = await upsertWhoopWorkout(connection.id, workout);
-        result[action] += 1;
+        const outcome = await upsertWhoopWorkout(connection.id, workout);
+        result[outcome.action] += 1;
+        if (outcome.needsReview) result.needsReview += 1;
 
         if (workout.user_id) {
           await prisma.whoopConnection.update({
@@ -170,15 +307,21 @@ export async function getWhoopStatus() {
       lastSyncAt: null,
       lastSyncError: null,
       expiresAt: null,
-      workoutCount: 0
+      workoutCount: 0,
+      needsReviewActivityCount: 0
     };
   }
+
+  const needsReviewActivityCount = await prisma.activitySession.count({
+    where: { syncStatus: activitySyncStatus.needsReview }
+  });
 
   return {
     connected: true,
     lastSyncAt: connection.lastSyncAt?.toISOString() ?? null,
     lastSyncError: connection.lastSyncError,
     expiresAt: connection.expiresAt.toISOString(),
-    workoutCount: connection._count.workoutMappings
+    workoutCount: connection._count.workoutMappings,
+    needsReviewActivityCount
   };
 }

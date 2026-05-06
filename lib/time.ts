@@ -8,7 +8,8 @@ export const workoutSessionTimeSource = {
 
 export const activitySessionTimeSource = {
   ...workoutSessionTimeSource,
-  whoopScreenshot: "whoop_screenshot"
+  whoopScreenshot: "whoop_screenshot",
+  whoopApi: "whoop_api"
 } as const;
 
 export type WorkoutSessionTimeSource =

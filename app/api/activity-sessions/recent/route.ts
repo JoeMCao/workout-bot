@@ -22,7 +22,10 @@ export async function GET(request: Request) {
     }
 
     const activities = await prisma.activitySession.findMany({
-      where: type ? { type } : undefined,
+      where: {
+        relatedWorkoutSessionId: null,
+        ...(type ? { type } : {})
+      },
       orderBy: { startedAt: "desc" },
       take: limit,
       include: {

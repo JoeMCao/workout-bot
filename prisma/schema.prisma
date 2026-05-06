@@ -48,6 +48,9 @@ model ActivitySession {
   id                      String          @id @default(cuid())
   type                    String
   modality                String?
+  /** Original vendor label (e.g. WHOOP sport_name); not the canonical ActivitySession.type. */
+  sourceActivityType      String?
+  rawPayloadJson          Json?
   startedAt               DateTime
   timeSource              String?
   timezone                String          @default("America/Los_Angeles")
@@ -71,6 +74,8 @@ model ActivitySession {
   zone5Minutes            Float?
   source                  String?
   notes                   String?
+  /** e.g. needs_review when WHOOP strength could not be auto-linked to a WorkoutSession */
+  syncStatus              String?
   relatedWorkoutSessionId String?
   relatedWorkoutSession   WorkoutSession?   @relation(fields: [relatedWorkoutSessionId], references: [id], onDelete: SetNull)
   whoopMappings           WhoopWorkoutMapping[]

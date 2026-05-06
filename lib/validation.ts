@@ -142,6 +142,7 @@ export const activityTypeSchema = z.enum([
   "mobility",
   "sauna",
   "cold_plunge",
+  "strength",
   "other"
 ]);
 
@@ -262,8 +263,13 @@ function normalizeElevationGainMeters(input: ElevationGainInput) {
   return values[0]?.value;
 }
 
+const activitySyncStatusSchema = z.enum(["needs_review"]).nullable().optional();
+
 const activitySessionFieldsShape = {
   modality: z.string().trim().min(1).nullable().optional(),
+  sourceActivityType: z.string().trim().min(1).nullable().optional(),
+  rawPayloadJson: z.any().nullable().optional(),
+  syncStatus: activitySyncStatusSchema,
   endedAt: nullableIsoDate,
   durationMinutes: nullableFloat,
   intensity: nullableActivityIntensity,
@@ -324,6 +330,13 @@ export function activitySessionCreateData(
   const data: Prisma.ActivitySessionCreateInput = {
     type: body.type,
     modality: body.modality,
+    sourceActivityType: body.sourceActivityType,
+    rawPayloadJson:
+      body.rawPayloadJson === null
+        ? Prisma.JsonNull
+        : body.rawPayloadJson === undefined
+          ? undefined
+          : (body.rawPayloadJson as Prisma.InputJsonValue),
     startedAt: meta.startedAt,
     timeSource: meta.timeSource,
     timezone: DEFAULT_USER_TIMEZONE,
@@ -351,7 +364,8 @@ export function activitySessionCreateData(
     zone4Minutes: body.zone4Minutes,
     zone5Minutes: body.zone5Minutes,
     source: body.source,
-    notes: body.notes
+    notes: body.notes,
+    syncStatus: body.syncStatus
   };
 
   if (body.relatedWorkoutSessionId) {
@@ -374,6 +388,17 @@ export function activitySessionUpdateData(
 
   if (body.modality !== undefined) {
     data.modality = body.modality;
+  }
+
+  if (body.sourceActivityType !== undefined) {
+    data.sourceActivityType = body.sourceActivityType;
+  }
+
+  if (body.rawPayloadJson !== undefined) {
+    data.rawPayloadJson =
+      body.rawPayloadJson === null
+        ? Prisma.JsonNull
+        : (body.rawPayloadJson as Prisma.InputJsonValue);
   }
 
   if (body.startedAt !== undefined) {
@@ -451,6 +476,10 @@ export function activitySessionUpdateData(
 
   if (body.notes !== undefined) {
     data.notes = body.notes;
+  }
+
+  if (body.syncStatus !== undefined) {
+    data.syncStatus = body.syncStatus;
   }
 
   if (body.relatedWorkoutSessionId !== undefined) {
