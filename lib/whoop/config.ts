@@ -1,0 +1,39 @@
+export const WHOOP_AUTHORIZATION_URL =
+  "https://api.prod.whoop.com/oauth/oauth2/auth";
+export const WHOOP_TOKEN_URL =
+  "https://api.prod.whoop.com/oauth/oauth2/token";
+export const WHOOP_API_BASE_URL = "https://api.prod.whoop.com";
+export const WHOOP_PROVIDER = "whoop";
+export const WHOOP_SCOPES = [
+  "read:workout",
+  "read:recovery",
+  "read:sleep",
+  "read:cycles",
+  "offline"
+];
+
+export function getWhoopClientConfig(request?: Request) {
+  const clientId = process.env.WHOOP_CLIENT_ID;
+  const clientSecret = process.env.WHOOP_CLIENT_SECRET;
+  const redirectUri =
+    process.env.WHOOP_REDIRECT_URI ??
+    (request ? `${new URL(request.url).origin}/api/auth/whoop/callback` : undefined);
+
+  if (!clientId) {
+    throw new Error("WHOOP_CLIENT_ID is not configured");
+  }
+
+  if (!clientSecret) {
+    throw new Error("WHOOP_CLIENT_SECRET is not configured");
+  }
+
+  if (!redirectUri) {
+    throw new Error("WHOOP_REDIRECT_URI is not configured");
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    redirectUri
+  };
+}

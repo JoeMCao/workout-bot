@@ -73,12 +73,49 @@ model ActivitySession {
   notes                   String?
   relatedWorkoutSessionId String?
   relatedWorkoutSession   WorkoutSession?   @relation(fields: [relatedWorkoutSessionId], references: [id], onDelete: SetNull)
+  whoopMappings           WhoopWorkoutMapping[]
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
   @@index([startedAt])
   @@index([type])
   @@index([relatedWorkoutSessionId])
+}
+
+model WhoopConnection {
+  id                    String                @id @default(cuid())
+  provider              String                @default("whoop")
+  whoopUserId           Int?
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String
+  tokenType             String?
+  scope                 String?
+  expiresAt             DateTime
+  lastSyncAt            DateTime?
+  lastSyncError         String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  workoutMappings       WhoopWorkoutMapping[]
+
+  @@unique([provider])
+  @@index([expiresAt])
+}
+
+model WhoopWorkoutMapping {
+  id                 String            @id @default(cuid())
+  connectionId       String
+  whoopWorkoutId     String
+  whoopUpdatedAt     DateTime?
+  activitySessionId  String?
+  raw                Json
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  connection         WhoopConnection   @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  activitySession    ActivitySession?  @relation(fields: [activitySessionId], references: [id], onDelete: SetNull)
+
+  @@unique([whoopWorkoutId])
+  @@index([connectionId])
+  @@index([activitySessionId])
 }
 
 model Exercise {

@@ -11,6 +11,7 @@ import {
   getLocalDateKey,
   getStartOfLocalWeekUtc
 } from "@/lib/time";
+import { getWhoopStatus } from "@/lib/whoop/sync";
 
 export const activityFilters = [
   "all",
@@ -437,7 +438,8 @@ export async function getOverviewData() {
         thisWeekLog.reduce((sum, item) => sum + (item.durationMinutes ?? 0), 0)
       )
     },
-    recentContext: contexts
+    recentContext: contexts,
+    whoop: await getWhoopStatus()
   };
 }
 

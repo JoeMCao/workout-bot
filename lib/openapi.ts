@@ -892,6 +892,63 @@ export function buildOpenApiSpec(baseUrl: string) {
             }
           }
         }
+      },
+      "/api/whoop/status": {
+        get: {
+          operationId: "getWhoopConnectionStatus",
+          summary: "WHOOP OAuth connection and last sync metadata (single-tenant)",
+          responses: {
+            "200": {
+              description: "Connection status",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      whoop: {
+                        $ref: "#/components/schemas/WhoopConnectionStatus"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/whoop/sync": {
+        post: {
+          operationId: "syncWhoopWorkouts",
+          summary:
+            "Pull workouts from WHOOP v2 API and upsert ActivitySession rows (requires prior browser OAuth connect)",
+          requestBody: {
+            required: false,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/WhoopSyncRequest"
+                }
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Sync result counts",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      result: {
+                        $ref: "#/components/schemas/WhoopSyncResult"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     components: {
@@ -1193,6 +1250,57 @@ export function buildOpenApiSpec(baseUrl: string) {
           type: "object",
           properties: createActivityRequestProperties,
           additionalProperties: false
+        },
+        WhoopConnectionStatus: {
+          type: "object",
+          properties: {
+            connected: { type: "boolean" },
+            lastSyncAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true
+            },
+            lastSyncError: { type: "string", nullable: true },
+            expiresAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+              description: "Access token expiry when connected"
+            },
+            workoutCount: {
+              type: "integer",
+              minimum: 0,
+              description: "WHOOP workout mappings stored for this deployment"
+            }
+          },
+          required: [
+            "connected",
+            "lastSyncAt",
+            "lastSyncError",
+            "expiresAt",
+            "workoutCount"
+          ]
+        },
+        WhoopSyncRequest: {
+          type: "object",
+          description:
+            "Optional ISO 8601 window for WHOOP workout list. Defaults follow WHOOP client pagination limits.",
+          properties: {
+            start: { type: "string", format: "date-time" },
+            end: { type: "string", format: "date-time" },
+            maxPages: { type: "integer", minimum: 1, maximum: 20 }
+          },
+          additionalProperties: false
+        },
+        WhoopSyncResult: {
+          type: "object",
+          properties: {
+            fetched: { type: "integer", minimum: 0 },
+            inserted: { type: "integer", minimum: 0 },
+            updated: { type: "integer", minimum: 0 },
+            skipped: { type: "integer", minimum: 0 }
+          },
+          required: ["fetched", "inserted", "updated", "skipped"]
         }
       }
     }

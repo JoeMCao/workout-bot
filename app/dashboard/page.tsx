@@ -6,6 +6,10 @@ import {
   labelForTag
 } from "@/lib/analytics";
 
+function formatOptionalDate(value: string | null) {
+  return value ? formatDate(value) : "Never";
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
@@ -108,6 +112,40 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        <div className="card">
+          <h2>WHOOP Sync</h2>
+          <p className="muted">
+            {overview.whoop.connected ? "Connected" : "Not connected"}
+          </p>
+          <div className="grid grid-2">
+            <div className="metric">
+              <span className="metric-value">{overview.whoop.workoutCount}</span>
+              <span className="muted">imported workouts</span>
+            </div>
+            <div className="metric">
+              <span className="row-title">{formatOptionalDate(overview.whoop.lastSyncAt)}</span>
+              <span className="muted">last sync</span>
+            </div>
+          </div>
+          {overview.whoop.expiresAt ? (
+            <p className="row-meta" style={{ marginTop: 12 }}>
+              Token expires {formatDate(overview.whoop.expiresAt)}
+            </p>
+          ) : null}
+          {overview.whoop.lastSyncError ? (
+            <p className="row-meta" style={{ color: "#b91c1c", marginTop: 12 }}>
+              Last sync error: {overview.whoop.lastSyncError}
+            </p>
+          ) : null}
+          <p style={{ marginTop: 16 }}>
+            <a className="button" href="/api/auth/whoop/start">
+              {overview.whoop.connected ? "Reconnect WHOOP" : "Connect WHOOP"}
+            </a>
+          </p>
+        </div>
+      </section>
+
+      <section className="grid grid-2" style={{ marginTop: 16 }}>
         <div className="card">
           <h2>Recent Notes / Flags</h2>
           {overview.recentContext.length > 0 ? (

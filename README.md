@@ -75,6 +75,10 @@ Fill in:
 ```bash
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
 WORKOUT_API_KEY="replace-with-a-long-random-secret"
+WHOOP_CLIENT_ID="replace-with-whoop-client-id"
+WHOOP_CLIENT_SECRET="replace-with-whoop-client-secret"
+WHOOP_REDIRECT_URI="http://localhost:3000/api/auth/whoop/callback"
+WHOOP_TOKEN_ENCRYPTION_KEY="replace-with-a-long-random-encryption-secret"
 ```
 
 Apply migrations:
@@ -95,6 +99,10 @@ Deploy to Vercel and set these environment variables:
 
 - `DATABASE_URL`: Railway PostgreSQL public connection string.
 - `WORKOUT_API_KEY`: private bearer token for your Custom GPT Action.
+- `WHOOP_CLIENT_ID`: WHOOP OAuth client ID.
+- `WHOOP_CLIENT_SECRET`: WHOOP OAuth client secret.
+- `WHOOP_REDIRECT_URI`: exact WHOOP callback URL registered in the WHOOP dashboard. Production uses `https://workout-bot-virid.vercel.app/api/auth/whoop/callback`; local development uses `http://localhost:3000/api/auth/whoop/callback`.
+- `WHOOP_TOKEN_ENCRYPTION_KEY`: long random secret used to encrypt stored WHOOP access and refresh tokens.
 
 Run production migrations when needed:
 
@@ -319,6 +327,35 @@ curl -X POST http://localhost:3000/api/activity-sessions \
     "relatedWorkoutSessionId": "WORKOUT_SESSION_ID",
     "source": "manual"
   }'
+```
+
+### WHOOP OAuth and sync
+
+Start OAuth in the browser:
+
+```bash
+open "http://localhost:3000/api/auth/whoop/start"
+```
+
+WHOOP redirects back to `/api/auth/whoop/callback`, where the app exchanges the code server-side and stores encrypted access/refresh tokens. The authorization request includes `offline` so refresh tokens are available and safely rotated on refresh.
+
+Sync WHOOP workouts into the existing `ActivitySession` table:
+
+```bash
+curl -X POST http://localhost:3000/api/whoop/sync \
+  -H "Authorization: Bearer $WORKOUT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "start": "2026-05-01T00:00:00-07:00",
+    "maxPages": 3
+  }'
+```
+
+Check connection status:
+
+```bash
+curl http://localhost:3000/api/whoop/status \
+  -H "Authorization: Bearer $WORKOUT_API_KEY"
 ```
 
 List recent runs:
