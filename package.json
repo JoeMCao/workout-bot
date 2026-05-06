@@ -15,7 +15,8 @@
     "debug:last-session": "node scripts/debug-last-session.js",
     "debug:time": "node scripts/debug-time.ts",
     "backfill:strength-activities": "tsx scripts/backfill-strength-activity-sessions.ts",
-    "wipe:activities": "tsx scripts/wipe-activity-sessions.ts --yes"
+    "wipe:activities": "tsx scripts/wipe-activity-sessions.ts --yes",
+    "wipe:whoop-mappings": "tsx scripts/wipe-whoop-workout-mappings.ts --yes"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

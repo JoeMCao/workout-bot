@@ -7,9 +7,11 @@ import type {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
+  DEFAULT_USER_TIMEZONE,
   formatLocalDate,
   formatLocalShortDate,
   getLocalDateKey,
+  getServerNow,
   getStartOfLocalWeekUtc
 } from "@/lib/time";
 import { queryWhoopHealthContextDays } from "@/lib/whoop/health-context-query";
@@ -441,8 +443,22 @@ export async function getOverviewData() {
     .slice(0, 8);
 
   const whoop = await getWhoopStatus();
-  const whoopHealthSnap = await queryWhoopHealthContextDays({ days: 1 });
-  const todayHealth = whoopHealthSnap.context[0];
+
+  let whoopHealthSnap: Awaited<ReturnType<typeof queryWhoopHealthContextDays>>;
+  let todayHealth: (typeof whoopHealthSnap.context)[0] | undefined;
+  try {
+    whoopHealthSnap = await queryWhoopHealthContextDays({ days: 1 });
+    todayHealth = whoopHealthSnap.context[0];
+  } catch {
+    const anchorDate = getLocalDateKey(getServerNow(), DEFAULT_USER_TIMEZONE);
+    whoopHealthSnap = {
+      timezone: DEFAULT_USER_TIMEZONE,
+      anchorDate,
+      days: 1,
+      context: [{ localDate: anchorDate, sleep: null, recovery: null }]
+    };
+    todayHealth = whoopHealthSnap.context[0];
+  }
 
   return {
     latest: latestItems[0] ?? null,

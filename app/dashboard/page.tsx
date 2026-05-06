@@ -196,12 +196,12 @@ export default async function DashboardPage() {
           </p>
           <div className="grid grid-2">
             <div className="metric">
-              <span className="metric-value">{overview.whoop.workoutCount}</span>
-              <span className="muted">imported workouts</span>
+              <span className="metric-value">{overview.whoop.whoopActivitySessionCount}</span>
+              <span className="muted">ActivitySession rows from WHOOP</span>
             </div>
             <div className="metric">
               <span className="row-title">{formatOptionalDate(overview.whoop.lastSyncAt)}</span>
-              <span className="muted">last sync</span>
+              <span className="muted">last workout sync</span>
             </div>
             {overview.whoop.needsReviewActivityCount > 0 ? (
               <div className="metric" style={{ gridColumn: "1 / -1" }}>

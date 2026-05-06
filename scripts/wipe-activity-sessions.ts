@@ -2,7 +2,8 @@
  * Deletes every ActivitySession row. WHOOP mappings keep `whoopWorkoutId` but
  * `activitySessionId` is set to NULL (FK ON DELETE SET NULL) so the next sync can recreate activities.
  *
- * Does not delete WorkoutSession or ExerciseSet.
+ * Does not delete WorkoutSession, ExerciseSet, or WhoopWorkoutMapping.
+ * To also clear WHOOP id mappings (dashboard workoutCount / API), run `npm run wipe:whoop-mappings`.
  *
  * Usage:
  *   npx tsx scripts/wipe-activity-sessions.ts --yes

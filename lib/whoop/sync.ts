@@ -469,6 +469,8 @@ export async function getWhoopStatus() {
       lastSyncError: null,
       expiresAt: null,
       workoutCount: 0,
+      /** Rows in `WhoopWorkoutMapping` (WHOOP ids we have seen); not the same as ActivitySession count. */
+      whoopActivitySessionCount: 0,
       needsReviewActivityCount: 0,
       scope: null as string | null,
       readWorkout: false,
@@ -479,26 +481,34 @@ export async function getWhoopStatus() {
     };
   }
 
-  const needsReviewActivityCount = await prisma.activitySession.count({
-    where: { syncStatus: activitySyncStatus.needsReview }
-  });
-
-  const [latestSleep, latestRecovery] = await Promise.all([
-    prisma.whoopSleep.findFirst({
-      orderBy: { updatedAt: "desc" },
-      select: { updatedAt: true }
+  const [needsReviewActivityCount, whoopActivitySessionCount] = await Promise.all([
+    prisma.activitySession.count({
+      where: { syncStatus: activitySyncStatus.needsReview }
     }),
-    prisma.whoopRecovery.findFirst({
-      orderBy: { updatedAt: "desc" },
-      select: { updatedAt: true }
-    })
+    prisma.activitySession.count({ where: { source: "whoop_api" } })
   ]);
-  const tSleep = latestSleep?.updatedAt?.getTime() ?? 0;
-  const tRec = latestRecovery?.updatedAt?.getTime() ?? 0;
-  const lastHealthContextAt =
-    tSleep > 0 || tRec > 0
-      ? new Date(Math.max(tSleep, tRec)).toISOString()
-      : null;
+
+  let lastHealthContextAt: string | null = null;
+  try {
+    const [latestSleep, latestRecovery] = await Promise.all([
+      prisma.whoopSleep.findFirst({
+        orderBy: { updatedAt: "desc" },
+        select: { updatedAt: true }
+      }),
+      prisma.whoopRecovery.findFirst({
+        orderBy: { updatedAt: "desc" },
+        select: { updatedAt: true }
+      })
+    ]);
+    const tSleep = latestSleep?.updatedAt?.getTime() ?? 0;
+    const tRec = latestRecovery?.updatedAt?.getTime() ?? 0;
+    lastHealthContextAt =
+      tSleep > 0 || tRec > 0
+        ? new Date(Math.max(tSleep, tRec)).toISOString()
+        : null;
+  } catch {
+    lastHealthContextAt = null;
+  }
 
   return {
     connected: true,
@@ -506,6 +516,7 @@ export async function getWhoopStatus() {
     lastSyncError: connection.lastSyncError,
     expiresAt: connection.expiresAt.toISOString(),
     workoutCount: connection._count.workoutMappings,
+    whoopActivitySessionCount,
     needsReviewActivityCount,
     scope: connection.scope ?? null,
     readWorkout: scopeIncludesReadWorkout(connection.scope),

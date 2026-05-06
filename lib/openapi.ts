@@ -1367,7 +1367,14 @@ export function buildOpenApiSpec(baseUrl: string) {
             workoutCount: {
               type: "integer",
               minimum: 0,
-              description: "WHOOP workout mappings stored for this deployment"
+              description:
+                "Rows in WhoopWorkoutMapping (unique WHOOP workout ids ever synced). Deleting ActivitySession does not remove these."
+            },
+            whoopActivitySessionCount: {
+              type: "integer",
+              minimum: 0,
+              description:
+                "ActivitySession rows with source=whoop_api (actual imported activity records in DB)."
             },
             needsReviewActivityCount: {
               type: "integer",
@@ -1432,6 +1439,7 @@ export function buildOpenApiSpec(baseUrl: string) {
             "lastSyncError",
             "expiresAt",
             "workoutCount",
+            "whoopActivitySessionCount",
             "needsReviewActivityCount",
             "scope",
             "readWorkout",
