@@ -27,7 +27,8 @@ export type WhoopWorkoutScore = {
 export type WhoopWorkout = {
   id: string;
   v1_id?: number;
-  user_id: number;
+  /** WHOOP user id when present; omitted in some API shapes. */
+  user_id?: number;
   created_at: string;
   updated_at: string;
   start: string;
@@ -35,6 +36,7 @@ export type WhoopWorkout = {
   timezone_offset: string;
   sport_name: string;
   score_state: "SCORED" | "PENDING_SCORE" | "UNSCORABLE";
+  /** Absent when score_state is pending or unscorable. */
   score?: WhoopWorkoutScore;
   sport_id?: number;
 };

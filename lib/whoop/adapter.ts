@@ -105,6 +105,7 @@ export function whoopWorkoutToActivityData(
   const zones = score?.zone_durations;
   const { type, modality } = whoopSportToCanonicalTypeAndModality(workout.sport_name);
   const rawPayloadJson = workout as unknown as Prisma.InputJsonValue;
+  const stateLabel = (workout.score_state ?? "pending_score").toLowerCase();
 
   return {
     type,
@@ -116,7 +117,7 @@ export function whoopWorkoutToActivityData(
     timeSource: activitySessionTimeSource.whoopApi,
     timezone: DEFAULT_USER_TIMEZONE,
     durationMinutes: durationMinutes(workout.start, workout.end),
-    intensity: score?.strain && score.strain >= 14 ? "high" : undefined,
+    intensity: score?.strain != null && score.strain >= 14 ? "high" : undefined,
     avgHeartRate: score?.average_heart_rate,
     maxHeartRate: score?.max_heart_rate,
     calories: caloriesFromKilojoules(score?.kilojoule),
@@ -130,7 +131,7 @@ export function whoopWorkoutToActivityData(
     zone4Minutes: zoneMinutes(zones?.zone_four_milli),
     zone5Minutes: zoneMinutes(zones?.zone_five_milli),
     source: "whoop_api",
-    notes: `WHOOP ${workout.score_state.toLowerCase()} (${workout.id})`
+    notes: `WHOOP ${stateLabel} (${workout.id})`
   };
 }
 

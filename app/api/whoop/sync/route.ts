@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
+import { WhoopSyncError } from "@/lib/whoop/sync-error";
+import { createWhoopSyncLogger } from "@/lib/whoop/sync-log";
 import { syncWhoopWorkouts } from "@/lib/whoop/sync";
 
 const syncSchema = z.object({
@@ -15,26 +17,13 @@ const syncSchema = z.object({
   )
 });
 
-function mapWhoopSyncError(error: unknown) {
+const exposeWhoopSyncDetails =
+  process.env.NODE_ENV !== "production" ||
+  process.env.WHOOP_SYNC_EXPOSE_ERRORS === "1";
+
+/** Legacy string errors from older call paths (if any). */
+function mapLegacyWhoopSyncError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-
-  if (message === "WHOOP is not connected") {
-    return errorJson(message, 401);
-  }
-
-  if (
-    message.startsWith("WHOOP workout fetch failed") ||
-    message.startsWith("WHOOP token request failed")
-  ) {
-    return errorJson(message, 502);
-  }
-
-  if (
-    message.startsWith("Invalid WHOOP query datetime:") ||
-    message.startsWith("Invalid WHOOP")
-  ) {
-    return errorJson(message, 400);
-  }
 
   if (
     message.includes("WHOOP_CLIENT_ID") ||
@@ -45,13 +34,6 @@ function mapWhoopSyncError(error: unknown) {
     return errorJson("WHOOP is not configured on the server", 503);
   }
 
-  if (message.includes("Invalid encrypted") || message.includes("decrypt")) {
-    return errorJson(
-      "Stored WHOOP tokens could not be decrypted (check WHOOP_TOKEN_ENCRYPTION_KEY or reconnect WHOOP)",
-      401
-    );
-  }
-
   return null;
 }
 
@@ -59,14 +41,36 @@ export async function POST(request: Request) {
   const authError = requireApiKey(request);
   if (authError) return authError;
 
+  const userId = request.headers.get("x-user-id")?.trim() ?? null;
+  const log = createWhoopSyncLogger({ userId });
+
   try {
     const body = syncSchema.parse(await parseJson(request));
-    const result = await syncWhoopWorkouts({ request, ...body });
+    const result = await syncWhoopWorkouts({
+      request,
+      ...body,
+      log,
+      userId
+    });
 
     return json({ result });
   } catch (error) {
-    const mapped = mapWhoopSyncError(error);
+    if (error instanceof WhoopSyncError) {
+      return json(
+        {
+          error: {
+            message: error.message,
+            code: error.code,
+            ...(exposeWhoopSyncDetails ? { details: error.details } : {})
+          }
+        },
+        error.httpStatus
+      );
+    }
+
+    const mapped = mapLegacyWhoopSyncError(error);
     if (mapped) return mapped;
+
     return handleRouteError(error);
   }
 }

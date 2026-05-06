@@ -11,9 +11,14 @@ import {
 import { getWhoopClientConfig } from "./config";
 import { fetchWhoopWorkoutPage } from "./client";
 import { getValidWhoopAccessToken } from "./oauth";
+import { WhoopSyncError, getErrorMessage } from "./sync-error";
+import type { WhoopSyncLogEvent } from "./sync-log";
 import { strengthUnlinkedResyncSyncStatusDecision } from "./strength-resync-sync-status";
 import { resolveWhoopStrengthWorkoutMatch } from "./strength-match";
 import type { WhoopWorkout } from "./types";
+import { normalizeWhoopWorkoutRecord } from "./workout-normalize";
+
+type SyncLogFn = (event: WhoopSyncLogEvent) => void;
 
 export type SyncResult = {
   fetched: number;
@@ -211,54 +216,150 @@ async function upsertWhoopWorkout(
   return { action: existing ? "updated" : "inserted", needsReview: true };
 }
 
+function wrapPersistError(error: unknown, whoopWorkoutId: string): never {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const prismaCode = error.code;
+    const http = prismaCode === "P2002" ? 409 : 500;
+    const syncCode =
+      prismaCode === "P2002"
+        ? "WHOOP_PERSIST_FAILED_UNIQUE"
+        : "WHOOP_PERSIST_FAILED_PRISMA";
+    throw new WhoopSyncError(syncCode, error.message, http, {
+      prismaCode,
+      meta: error.meta,
+      whoopWorkoutId
+    });
+  }
+
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    throw new WhoopSyncError(
+      "WHOOP_PERSIST_FAILED_VALIDATION",
+      error.message,
+      500,
+      { whoopWorkoutId }
+    );
+  }
+
+  throw new WhoopSyncError(
+    "WHOOP_PERSIST_FAILED",
+    getErrorMessage(error),
+    500,
+    { whoopWorkoutId, cause: getErrorMessage(error) }
+  );
+}
+
 export async function syncWhoopWorkouts({
   request,
   start,
   end,
-  maxPages = 10
+  maxPages = 10,
+  log: logMaybe,
+  userId = null
 }: {
   request?: Request;
   start?: string;
   end?: string;
   maxPages?: number;
+  log?: SyncLogFn;
+  /** Optional correlation id (e.g. `x-user-id`); WHOOP row is still single-tenant. */
+  userId?: string | null;
 } = {}): Promise<SyncResult> {
-  const { clientId, clientSecret } = getWhoopClientConfig(request);
-  const { connection, accessToken } = await getValidWhoopAccessToken({
-    clientId,
-    clientSecret
+  const log = logMaybe ?? ((_e: WhoopSyncLogEvent) => {});
+
+  log({
+    phase: "sync_request",
+    start: start ?? null,
+    end: end ?? null,
+    maxPages,
+    userId
   });
-  const result: SyncResult = {
-    fetched: 0,
-    inserted: 0,
-    updated: 0,
-    skipped: 0,
-    needsReview: 0
-  };
-  let nextToken: string | undefined;
-  let page = 0;
+
+  let connectionId: string | undefined;
 
   try {
+    let clientId: string;
+    let clientSecret: string;
+    try {
+      ({ clientId, clientSecret } = getWhoopClientConfig(request));
+    } catch (error) {
+      throw new WhoopSyncError(
+        "WHOOP_CONFIG_FAILED",
+        getErrorMessage(error),
+        503,
+        { cause: getErrorMessage(error) }
+      );
+    }
+
+    const { connection, accessToken } = await getValidWhoopAccessToken(
+      { clientId, clientSecret },
+      log
+    );
+    connectionId = connection.id;
+
+    const result: SyncResult = {
+      fetched: 0,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      needsReview: 0
+    };
+    let nextToken: string | undefined;
+    let page = 0;
+
     do {
       const payload = await fetchWhoopWorkoutPage({
         accessToken,
         start,
         end,
-        nextToken
+        nextToken,
+        page: page + 1,
+        log
       });
 
-      for (const workout of payload.records ?? []) {
+      for (const raw of payload.records ?? []) {
         result.fetched += 1;
+        const workout = normalizeWhoopWorkoutRecord(raw, log);
 
-        if (!workout.id || !workout.start || !workout.end) {
+        if (!workout) {
           result.skipped += 1;
           continue;
         }
 
-        const outcome = await upsertWhoopWorkout(connection.id, workout);
-        result[outcome.action] += 1;
-        if (outcome.needsReview) result.needsReview += 1;
+        log({
+          phase: "persist_workout_start",
+          connectionId,
+          whoopWorkoutId: workout.id
+        });
 
-        if (workout.user_id) {
+        try {
+          const outcome = await upsertWhoopWorkout(connection.id, workout);
+          result[outcome.action] += 1;
+          if (outcome.needsReview) result.needsReview += 1;
+          log({
+            phase: "persist_workout_complete",
+            connectionId,
+            whoopWorkoutId: workout.id,
+            action: outcome.action,
+            needsReview: outcome.needsReview
+          });
+        } catch (error) {
+          log({
+            phase: "persist_workout_error",
+            connectionId,
+            whoopWorkoutId: workout.id,
+            message: getErrorMessage(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          wrapPersistError(error, workout.id);
+        }
+
+        if (workout.user_id != null) {
+          log({
+            phase: "db_write",
+            step: "whoop_connection_whoop_user_id",
+            connectionId,
+            whoopUserId: workout.user_id
+          });
           await prisma.whoopConnection.update({
             where: { id: connection.id },
             data: { whoopUserId: workout.user_id }
@@ -270,6 +371,13 @@ export async function syncWhoopWorkouts({
       page += 1;
     } while (nextToken && page < maxPages);
 
+    log({
+      phase: "connection_sync_meta",
+      step: "success",
+      connectionId,
+      lastSyncAt: getServerNow().toISOString()
+    });
+
     await prisma.whoopConnection.update({
       where: { id: connection.id },
       data: {
@@ -280,12 +388,27 @@ export async function syncWhoopWorkouts({
 
     return result;
   } catch (error) {
-    await prisma.whoopConnection.update({
-      where: { id: connection.id },
-      data: {
-        lastSyncError: error instanceof Error ? error.message : "WHOOP sync failed"
-      }
+    log({
+      phase: "sync_fatal",
+      userId,
+      connectionId: connectionId ?? null,
+      message: getErrorMessage(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      code: error instanceof WhoopSyncError ? error.code : undefined
     });
+
+    if (connectionId) {
+      const msg =
+        error instanceof WhoopSyncError
+          ? `${error.code}: ${error.message}`
+          : getErrorMessage(error);
+      await prisma.whoopConnection.update({
+        where: { id: connectionId },
+        data: {
+          lastSyncError: msg.slice(0, 2000)
+        }
+      });
+    }
 
     throw error;
   }
