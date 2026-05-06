@@ -4,6 +4,9 @@ export const WHOOP_TOKEN_URL =
   "https://api.prod.whoop.com/oauth/oauth2/token";
 /**
  * Data API base — matches WHOOP OpenAPI `servers[0].url` (workout collection: `GET /v2/activity/workout`, scope `read:workout`).
+ * OAuth stays on `https://api.prod.whoop.com/oauth/...` (no `/developer`).
+ * There is **no** `process.env` override for this value; if Vercel logs show requests to
+ * `https://api.prod.whoop.com/v2/...` without `/developer`, the deployment is stale or not this codebase.
  * @see https://developer.whoop.com/api — OpenAPI download lists server `https://api.prod.whoop.com/developer`
  */
 export const WHOOP_API_BASE_URL = "https://api.prod.whoop.com/developer";

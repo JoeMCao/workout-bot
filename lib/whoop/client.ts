@@ -5,6 +5,20 @@ import type { WhoopWorkoutCollection } from "./types";
 
 type SyncLogFn = (event: WhoopSyncLogEvent) => void;
 
+/** OpenAPI `servers[0].url`; requests without `/developer` return 404 on the workout collection path. */
+const WHOOP_OPENAPI_SERVER_ORIGIN = "https://api.prod.whoop.com/developer";
+
+function assertWhoopDataApiBaseMatchesOpenApi() {
+  const normalized = WHOOP_API_BASE_URL.replace(/\/$/, "");
+  if (normalized !== WHOOP_OPENAPI_SERVER_ORIGIN) {
+    throw new WhoopSyncError(
+      "WHOOP_CONFIG_INVALID",
+      `WHOOP_API_BASE_URL must be ${WHOOP_OPENAPI_SERVER_ORIGIN} per WHOOP OpenAPI; got ${normalized}`,
+      503
+    );
+  }
+}
+
 /** Non-sensitive headers useful when WHOOP returns 404/401 (no cookie/auth secrets expected). */
 function whoopResponseHeadersForLog(headers: Headers) {
   const pick = [
@@ -47,7 +61,9 @@ export async function fetchWhoopWorkoutPage({
   nextToken,
   limit = 25,
   page,
-  log
+  log,
+  /** Stored OAuth scope / flag for failure diagnostics (never logs tokens). */
+  whoopConnectionContext
 }: {
   accessToken: string;
   start?: string;
@@ -56,8 +72,19 @@ export async function fetchWhoopWorkoutPage({
   limit?: number;
   page?: number;
   log?: SyncLogFn;
+  whoopConnectionContext?: {
+    connectionScope: string | null;
+    readWorkout: boolean;
+  };
 }) {
-  const url = new URL("/v2/activity/workout", WHOOP_API_BASE_URL);
+  assertWhoopDataApiBaseMatchesOpenApi();
+  /**
+   * Must not use `new URL("/v2/...", base)` when base path is `/developer`:
+   * an absolute path replaces the entire base path and drops `/developer` (WHATWG URL rules).
+   */
+  const url = new URL(
+    `${WHOOP_API_BASE_URL.replace(/\/$/, "")}/v2/activity/workout`
+  );
   url.searchParams.set("limit", String(Math.min(limit, 25)));
 
   if (start) url.searchParams.set("start", whoopQueryInstant(start));
@@ -80,7 +107,13 @@ export async function fetchWhoopWorkoutPage({
       ok: false,
       status: response.status,
       responseHeaders: whoopResponseHeadersForLog(response.headers),
-      responseBody: body
+      responseBody: body,
+      ...(whoopConnectionContext
+        ? {
+            connectionScope: whoopConnectionContext.connectionScope,
+            readWorkout: whoopConnectionContext.readWorkout
+          }
+        : {})
     });
     throw new WhoopSyncError(
       "WHOOP_FETCH_FAILED",
@@ -90,7 +123,13 @@ export async function fetchWhoopWorkoutPage({
         requestUrl: url.toString(),
         httpStatus: response.status,
         body,
-        responseHeaders: whoopResponseHeadersForLog(response.headers)
+        responseHeaders: whoopResponseHeadersForLog(response.headers),
+        ...(whoopConnectionContext
+          ? {
+              connectionScope: whoopConnectionContext.connectionScope,
+              readWorkout: whoopConnectionContext.readWorkout
+            }
+          : {})
       }
     );
   }
@@ -107,7 +146,13 @@ export async function fetchWhoopWorkoutPage({
     ok: true,
     status: response.status,
     recordCount: records.length,
-    hasNextToken: Boolean(next_page)
+    hasNextToken: Boolean(next_page),
+    ...(whoopConnectionContext
+      ? {
+          connectionScope: whoopConnectionContext.connectionScope,
+          readWorkout: whoopConnectionContext.readWorkout
+        }
+      : {})
   });
 
   return { records, next_token: next_page };

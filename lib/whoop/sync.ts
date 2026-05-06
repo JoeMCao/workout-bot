@@ -306,6 +306,11 @@ export async function syncWhoopWorkouts({
     let nextToken: string | undefined;
     let page = 0;
 
+    const whoopConnectionContext = {
+      connectionScope: connection.scope ?? null,
+      readWorkout: scopeIncludesReadWorkout(connection.scope)
+    };
+
     do {
       const payload = await fetchWhoopWorkoutPage({
         accessToken,
@@ -313,7 +318,8 @@ export async function syncWhoopWorkouts({
         end,
         nextToken,
         page: page + 1,
-        log
+        log,
+        whoopConnectionContext
       });
 
       for (const raw of payload.records ?? []) {
