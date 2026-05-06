@@ -428,8 +428,8 @@ export async function getOverviewData() {
   ];
 
   const contexts = [
-    ...recentWorkouts.map(workoutToContextEvent),
-    ...recentActivities.map(activityToContextEvent)
+    ...recentWorkouts.map((s) => workoutToContextEvent(s, { includeInferredTags: false })),
+    ...recentActivities.map((a) => activityToContextEvent(a, { includeInferredTags: false }))
   ]
     .filter((event) => event.tags.length > 0 || event.notes)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -553,26 +553,34 @@ export async function getCardioTrends() {
   }));
 }
 
-function workoutToContextEvent(session: WorkoutSession): ContextEvent {
+function workoutToContextEvent(
+  session: WorkoutSession,
+  options: { includeInferredTags?: boolean } = {}
+): ContextEvent {
+  const includeInferredTags = options.includeInferredTags ?? true;
   return {
     id: session.id,
     date: session.startedAt.toISOString(),
     dateKey: getLocalDateKey(session.startedAt),
     source: "strength",
     label: session.goal ?? session.sessionType ?? "Workout",
-    tags: tagsForWorkout(session),
+    tags: includeInferredTags ? tagsForWorkout(session) : [],
     notes: session.notes ?? session.readinessNotes ?? session.soreness
   };
 }
 
-function activityToContextEvent(activity: ActivitySession): ContextEvent {
+function activityToContextEvent(
+  activity: ActivitySession,
+  options: { includeInferredTags?: boolean } = {}
+): ContextEvent {
+  const includeInferredTags = options.includeInferredTags ?? true;
   return {
     id: activity.id,
     date: activity.startedAt.toISOString(),
     dateKey: getLocalDateKey(activity.startedAt),
     source: activity.type,
     label: activityTitle(activity),
-    tags: tagsForActivity(activity),
+    tags: includeInferredTags ? tagsForActivity(activity) : [],
     notes: activity.notes
   };
 }
@@ -590,7 +598,10 @@ export async function getContextTimeline() {
     })
   ]);
 
-  return [...workouts.map(workoutToContextEvent), ...activities.map(activityToContextEvent)]
+  return [
+    ...workouts.map((s) => workoutToContextEvent(s)),
+    ...activities.map((a) => activityToContextEvent(a))
+  ]
     .filter((event) => event.tags.length > 0 || event.notes)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }

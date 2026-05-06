@@ -98,6 +98,7 @@ function caloriesFromKilojoules(kilojoule?: number) {
   return kilojoule == null ? undefined : Math.round(kilojoule / 4.184);
 }
 
+/** WHOOP id and full payload live on `rawPayloadJson`; `notes` is left unset for you to edit. */
 export function whoopWorkoutToActivityData(
   workout: WhoopWorkout
 ): Prisma.ActivitySessionCreateInput {
@@ -105,7 +106,6 @@ export function whoopWorkoutToActivityData(
   const zones = score?.zone_durations;
   const { type, modality } = whoopSportToCanonicalTypeAndModality(workout.sport_name);
   const rawPayloadJson = workout as unknown as Prisma.InputJsonValue;
-  const stateLabel = (workout.score_state ?? "pending_score").toLowerCase();
 
   return {
     type,
@@ -130,8 +130,7 @@ export function whoopWorkoutToActivityData(
     zone3Minutes: zoneMinutes(zones?.zone_three_milli),
     zone4Minutes: zoneMinutes(zones?.zone_four_milli),
     zone5Minutes: zoneMinutes(zones?.zone_five_milli),
-    source: "whoop_api",
-    notes: `WHOOP ${stateLabel} (${workout.id})`
+    source: "whoop_api"
   };
 }
 
@@ -165,7 +164,6 @@ export function whoopWorkoutToActivitySessionUpdateInput(
     zone4Minutes: b.zone4Minutes,
     zone5Minutes: b.zone5Minutes,
     source: b.source,
-    notes: b.notes,
     ...(options.syncStatus !== undefined ? { syncStatus: options.syncStatus } : {})
   };
 }

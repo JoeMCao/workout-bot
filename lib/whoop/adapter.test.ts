@@ -59,7 +59,7 @@ test("tolerates missing score when score_state is pending", () => {
   };
   const activity = whoopWorkoutToActivityData(pending);
   assert.equal(activity.avgHeartRate, undefined);
-  assert.ok(activity.notes?.includes("pending_score"));
+  assert.equal(activity.notes, undefined);
 });
 
 test("maps WHOOP strength-like sports to type strength and preserves source label", () => {
