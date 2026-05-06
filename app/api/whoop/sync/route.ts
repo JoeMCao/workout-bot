@@ -3,7 +3,7 @@ import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
 import { WhoopSyncError } from "@/lib/whoop/sync-error";
 import { createWhoopSyncLogger } from "@/lib/whoop/sync-log";
-import { syncWhoopWorkouts } from "@/lib/whoop/sync";
+import { getWhoopStatus, syncWhoopWorkouts } from "@/lib/whoop/sync";
 
 const syncSchema = z.object({
   start: z.string().datetime({ offset: true }).optional(),
@@ -17,9 +17,16 @@ const syncSchema = z.object({
   )
 });
 
-const exposeWhoopSyncDetails =
-  process.env.NODE_ENV !== "production" ||
-  process.env.WHOOP_SYNC_EXPOSE_ERRORS === "1";
+function shouldExposeWhoopSyncDetails(request: Request) {
+  const debugHeader = request.headers.get("x-debug-whoop-sync");
+  const debugOn = debugHeader === "1" || debugHeader?.toLowerCase() === "true";
+
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.WHOOP_SYNC_EXPOSE_ERRORS === "1" ||
+    debugOn
+  );
+}
 
 /** Legacy string errors from older call paths (if any). */
 function mapLegacyWhoopSyncError(error: unknown) {
@@ -41,6 +48,7 @@ export async function POST(request: Request) {
   const authError = requireApiKey(request);
   if (authError) return authError;
 
+  const exposeWhoopSyncDetails = shouldExposeWhoopSyncDetails(request);
   const userId = request.headers.get("x-user-id")?.trim() ?? null;
   const log = createWhoopSyncLogger({ userId });
 
@@ -61,7 +69,12 @@ export async function POST(request: Request) {
           error: {
             message: error.message,
             code: error.code,
-            ...(exposeWhoopSyncDetails ? { details: error.details } : {})
+            ...(exposeWhoopSyncDetails
+              ? {
+                  details: error.details,
+                  whoop: await getWhoopStatus()
+                }
+              : {})
           }
         },
         error.httpStatus

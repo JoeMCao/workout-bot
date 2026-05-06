@@ -87,6 +87,7 @@ export async function fetchWhoopWorkoutPage({
       `WHOOP workout API returned ${response.status}`,
       httpStatusForWhoopWorkoutApi(response.status),
       {
+        requestUrl: url.toString(),
         httpStatus: response.status,
         body,
         responseHeaders: whoopResponseHeadersForLog(response.headers)
