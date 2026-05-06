@@ -1,4 +1,5 @@
 import { SiteChrome } from "@/components/dashboard/SiteChrome";
+import { WhoopSyncPanel } from "@/components/dashboard/WhoopSyncPanel";
 import {
   formatDate,
   formatDuration,
@@ -152,6 +153,7 @@ export default async function DashboardPage() {
               {overview.whoop.connected ? "Reconnect WHOOP" : "Connect WHOOP"}
             </a>
           </p>
+          <WhoopSyncPanel whoopConnected={overview.whoop.connected} />
         </div>
       </section>
 
