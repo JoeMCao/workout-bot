@@ -7,7 +7,8 @@ const navItems = [
   { href: "/strength", label: "Strength" },
   { href: "/cardio", label: "Cardio" },
   { href: "/recovery", label: "Recovery" },
-  { href: "/insights", label: "Insights" }
+  { href: "/insights", label: "Insights" },
+  { href: "/privacy", label: "Privacy" }
 ];
 
 export function SiteChrome({
