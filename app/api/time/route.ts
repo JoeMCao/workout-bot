@@ -1,5 +1,6 @@
 import { requireApiKey } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_USER_TIMEZONE } from "@/lib/time";
 
 type DbTimeRow = {
   dbNow: string;
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
 
     return Response.json({
       dbNow: row.dbNow,
-      timezone: "America/Los_Angeles"
+      timezone: DEFAULT_USER_TIMEZONE
     });
   } catch (error) {
     console.error("[time] failed to fetch time", error);

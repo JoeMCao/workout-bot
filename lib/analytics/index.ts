@@ -5,6 +5,12 @@ import type {
   WorkoutSession
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  formatLocalDate,
+  formatLocalShortDate,
+  getLocalDateKey,
+  getStartOfLocalWeekUtc
+} from "@/lib/time";
 
 export const activityFilters = [
   "all",
@@ -51,6 +57,7 @@ export type TrainingLogItem = {
   kind: "strength" | "activity";
   type: string;
   date: string;
+  dateKey: string;
   durationMinutes: number | null;
   title: string;
   details: string;
@@ -63,6 +70,7 @@ export type TrainingLogItem = {
 export type StrengthProgressPoint = {
   id: string;
   date: string;
+  dateKey: string;
   exerciseName: string;
   setNumber: number | null;
   weight: number | null;
@@ -77,6 +85,7 @@ export type StrengthProgressPoint = {
 export type CardioTrendPoint = {
   id: string;
   date: string;
+  dateKey: string;
   type: string;
   modality: string;
   durationMinutes: number | null;
@@ -95,6 +104,7 @@ export type CardioTrendPoint = {
 export type ContextEvent = {
   id: string;
   date: string;
+  dateKey: string;
   source: string;
   label: string;
   tags: ContextTag[];
@@ -127,18 +137,11 @@ export function isCardioActivity(type: string) {
 }
 
 export function formatDate(value: string | Date) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  }).format(new Date(value));
+  return formatLocalDate(value);
 }
 
 export function formatShortDate(value: string | Date) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric"
-  }).format(new Date(value));
+  return formatLocalShortDate(value);
 }
 
 export function formatDuration(minutes: number | null) {
@@ -168,15 +171,6 @@ export function formatPace(secondsPerKm: number | null) {
   const minutes = Math.floor(secondsPerMile / 60);
   const seconds = secondsPerMile % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")} / mi`;
-}
-
-function startOfWeek(date = new Date()) {
-  const start = new Date(date);
-  const day = start.getDay();
-  const distanceFromMonday = (day + 6) % 7;
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - distanceFromMonday);
-  return start;
 }
 
 function durationFromDates(startedAt: Date, endedAt: Date | null) {
@@ -295,6 +289,7 @@ function workoutToLogItem(session: WorkoutWithSets): TrainingLogItem {
     kind: "strength",
     type: session.sessionType ?? "strength",
     date: session.startedAt.toISOString(),
+    dateKey: getLocalDateKey(session.startedAt),
     durationMinutes: workoutDuration(session),
     title: session.goal ?? session.sessionType ?? "Strength session",
     details: exerciseSummary(session.sets),
@@ -311,6 +306,7 @@ function activityToLogItem(activity: ActivitySession): TrainingLogItem {
     kind: "activity",
     type: isCardioActivity(activity.type) ? "cardio" : activity.type,
     date: activity.startedAt.toISOString(),
+    dateKey: getLocalDateKey(activity.startedAt),
     durationMinutes:
       activity.durationMinutes ?? durationFromDates(activity.startedAt, activity.endedAt),
     title: activityTitle(activity),
@@ -365,7 +361,7 @@ export async function getTrainingLog(filter: ActivityFilter = "all") {
 }
 
 export async function getOverviewData() {
-  const weekStart = startOfWeek();
+  const weekStart = getStartOfLocalWeekUtc();
 
   const [
     totalWorkouts,
@@ -487,6 +483,7 @@ export async function getStrengthProgress(exerciseId?: string) {
     return {
       id: set.id,
       date: set.completedAt.toISOString(),
+      dateKey: getLocalDateKey(set.completedAt),
       exerciseName: set.exercise.name,
       setNumber: set.setNumber,
       weight: set.weight,
@@ -512,6 +509,7 @@ export async function getCardioTrends() {
   return activities.map((activity): CardioTrendPoint => ({
     id: activity.id,
     date: activity.startedAt.toISOString(),
+    dateKey: getLocalDateKey(activity.startedAt),
     type: activity.type,
     modality: activityTitle(activity),
     durationMinutes:
@@ -540,6 +538,7 @@ function workoutToContextEvent(session: WorkoutSession): ContextEvent {
   return {
     id: session.id,
     date: session.startedAt.toISOString(),
+    dateKey: getLocalDateKey(session.startedAt),
     source: "strength",
     label: session.goal ?? session.sessionType ?? "Workout",
     tags: tagsForWorkout(session),
@@ -551,6 +550,7 @@ function activityToContextEvent(activity: ActivitySession): ContextEvent {
   return {
     id: activity.id,
     date: activity.startedAt.toISOString(),
+    dateKey: getLocalDateKey(activity.startedAt),
     source: activity.type,
     label: activityTitle(activity),
     tags: tagsForActivity(activity),

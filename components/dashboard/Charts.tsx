@@ -14,22 +14,16 @@ import {
   YAxis
 } from "recharts";
 import type { CardioTrendPoint, StrengthProgressPoint } from "@/lib/analytics";
+import { formatLocalShortDate } from "@/lib/time";
 
 const axisStyle = {
   fill: "#64748b",
   fontSize: 12
 };
 
-function formatShortDate(value: string | Date) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric"
-  }).format(new Date(value));
-}
-
 export function StrengthProgressChart({ points }: { points: StrengthProgressPoint[] }) {
   const data = points.map((point) => ({
-    date: formatShortDate(point.date),
+    date: formatLocalShortDate(point.date),
     weight: point.weight,
     reps: point.reps,
     estimatedOneRepMax: point.estimatedOneRepMax
@@ -82,7 +76,7 @@ export function StrengthProgressChart({ points }: { points: StrengthProgressPoin
 
 export function CardioTrendChart({ points }: { points: CardioTrendPoint[] }) {
   const data = points.map((point) => ({
-    date: formatShortDate(point.date),
+    date: formatLocalShortDate(point.date),
     durationMinutes: point.durationMinutes,
     avgHeartRate: point.avgHeartRate,
     maxHeartRate: point.maxHeartRate,

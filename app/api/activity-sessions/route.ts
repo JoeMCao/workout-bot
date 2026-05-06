@@ -1,7 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { activitySessionTimeSource } from "@/lib/time";
+import { activitySessionTimeSource, getServerNow } from "@/lib/time";
 import {
   activitySessionCreateData,
   createActivitySessionSchema
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const body = createActivitySessionSchema.parse(await parseJson(request));
     const startedAtRaw = body.startedAt;
     const hasStartedAt = startedAtRaw != null;
-    const startedAt = hasStartedAt ? new Date(startedAtRaw) : new Date();
+    const startedAt = hasStartedAt ? new Date(startedAtRaw) : getServerNow();
     const timeSource = hasStartedAt
       ? activitySessionTimeSource.userProvided
       : activitySessionTimeSource.apiDefault;
