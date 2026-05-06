@@ -2,7 +2,10 @@ export const WHOOP_AUTHORIZATION_URL =
   "https://api.prod.whoop.com/oauth/oauth2/auth";
 export const WHOOP_TOKEN_URL =
   "https://api.prod.whoop.com/oauth/oauth2/token";
-/** Data API base (OpenAPI `servers[0].url`); OAuth stays on `api.prod.whoop.com` without `/developer`. */
+/**
+ * Data API base — matches WHOOP OpenAPI `servers[0].url` (workout collection: `GET /v2/activity/workout`, scope `read:workout`).
+ * @see https://developer.whoop.com/api — OpenAPI download lists server `https://api.prod.whoop.com/developer`
+ */
 export const WHOOP_API_BASE_URL = "https://api.prod.whoop.com/developer";
 export const WHOOP_PROVIDER = "whoop";
 export const WHOOP_SCOPES = [

@@ -1300,6 +1300,39 @@ export function buildOpenApiSpec(baseUrl: string) {
               minimum: 0,
               description:
                 "Activity sessions with syncStatus=needs_review (strength WHOOP without a unique WorkoutSession match)."
+            },
+            scope: {
+              type: "string",
+              nullable: true,
+              description:
+                "OAuth scope string last stored from WHOOP (token response); null when disconnected."
+            },
+            readWorkout: {
+              type: "boolean",
+              description:
+                "True when `read:workout` appears in the stored scope string (required for workout sync)."
+            },
+            whoopDeveloperApiBase: {
+              type: "string",
+              description:
+                "Runtime WHOOP data API base URL (official OpenAPI server); must be `https://api.prod.whoop.com/developer` for production workout collection calls."
+            },
+            whoopWorkoutCollectionUrl: {
+              type: "string",
+              description:
+                "Path used for workout list requests before query params (`limit`, `start`, `end`, `nextToken`)."
+            },
+            vercelDeploymentId: {
+              type: "string",
+              nullable: true,
+              description:
+                "Vercel `VERCEL_DEPLOYMENT_ID` when running on Vercel; use to confirm which deployment served this response."
+            },
+            vercelGitCommitSha: {
+              type: "string",
+              nullable: true,
+              description:
+                "Vercel `VERCEL_GIT_COMMIT_SHA` when set; compare to your repo to confirm the live build."
             }
           },
           required: [
@@ -1308,7 +1341,13 @@ export function buildOpenApiSpec(baseUrl: string) {
             "lastSyncError",
             "expiresAt",
             "workoutCount",
-            "needsReviewActivityCount"
+            "needsReviewActivityCount",
+            "scope",
+            "readWorkout",
+            "whoopDeveloperApiBase",
+            "whoopWorkoutCollectionUrl",
+            "vercelDeploymentId",
+            "vercelGitCommitSha"
           ]
         },
         WhoopSyncRequest: {

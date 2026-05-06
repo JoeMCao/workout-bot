@@ -5,6 +5,23 @@ import type { WhoopWorkoutCollection } from "./types";
 
 type SyncLogFn = (event: WhoopSyncLogEvent) => void;
 
+/** Non-sensitive headers useful when WHOOP returns 404/401 (no cookie/auth secrets expected). */
+function whoopResponseHeadersForLog(headers: Headers) {
+  const pick = [
+    "content-type",
+    "www-authenticate",
+    "x-request-id",
+    "cf-ray",
+    "server"
+  ] as const;
+  const out: Record<string, string> = {};
+  for (const k of pick) {
+    const v = headers.get(k);
+    if (v) out[k] = v;
+  }
+  return out;
+}
+
 function httpStatusForWhoopWorkoutApi(status: number) {
   if (status === 401 || status === 403 || status === 429) return status;
   return 502;
@@ -58,16 +75,22 @@ export async function fetchWhoopWorkoutPage({
   if (!response.ok) {
     log?.({
       phase: "whoop_workout_http",
+      requestUrl: url.toString(),
       page: page ?? null,
       ok: false,
       status: response.status,
+      responseHeaders: whoopResponseHeadersForLog(response.headers),
       responseBody: body
     });
     throw new WhoopSyncError(
       "WHOOP_FETCH_FAILED",
       `WHOOP workout API returned ${response.status}`,
       httpStatusForWhoopWorkoutApi(response.status),
-      { httpStatus: response.status, body }
+      {
+        httpStatus: response.status,
+        body,
+        responseHeaders: whoopResponseHeadersForLog(response.headers)
+      }
     );
   }
 
@@ -78,6 +101,7 @@ export async function fetchWhoopWorkoutPage({
 
   log?.({
     phase: "whoop_workout_http",
+    requestUrl: url.toString(),
     page: page ?? null,
     ok: true,
     status: response.status,

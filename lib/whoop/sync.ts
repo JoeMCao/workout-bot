@@ -8,7 +8,7 @@ import {
   whoopWorkoutToActivityData,
   whoopWorkoutToActivitySessionUpdateInput
 } from "./adapter";
-import { getWhoopClientConfig } from "./config";
+import { WHOOP_API_BASE_URL, getWhoopClientConfig } from "./config";
 import { fetchWhoopWorkoutPage } from "./client";
 import { getValidWhoopAccessToken } from "./oauth";
 import { WhoopSyncError, getErrorMessage } from "./sync-error";
@@ -414,6 +414,28 @@ export async function syncWhoopWorkouts({
   }
 }
 
+function grantedScopesList(scope: string | null | undefined) {
+  if (!scope?.trim()) return [];
+  return scope.split(/[\s,]+/).filter(Boolean);
+}
+
+function scopeIncludesReadWorkout(scope: string | null | undefined) {
+  return grantedScopesList(scope).includes("read:workout");
+}
+
+/** WHOOP OpenAPI server URL + collection path (query string added per request in `fetchWhoopWorkoutPage`). */
+const WHOOP_WORKOUT_COLLECTION_PATH = "/v2/activity/workout";
+
+function whoopDeploymentDiagnostics() {
+  return {
+    whoopDeveloperApiBase: WHOOP_API_BASE_URL,
+    whoopWorkoutCollectionUrl:
+      `${WHOOP_API_BASE_URL.replace(/\/$/, "")}${WHOOP_WORKOUT_COLLECTION_PATH}`,
+    vercelDeploymentId: process.env.VERCEL_DEPLOYMENT_ID ?? null,
+    vercelGitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null
+  };
+}
+
 export async function getWhoopStatus() {
   const connection = await prisma.whoopConnection.findUnique({
     where: { provider: "whoop" },
@@ -424,6 +446,8 @@ export async function getWhoopStatus() {
     }
   });
 
+  const diag = whoopDeploymentDiagnostics();
+
   if (!connection) {
     return {
       connected: false,
@@ -431,7 +455,10 @@ export async function getWhoopStatus() {
       lastSyncError: null,
       expiresAt: null,
       workoutCount: 0,
-      needsReviewActivityCount: 0
+      needsReviewActivityCount: 0,
+      scope: null as string | null,
+      readWorkout: false,
+      ...diag
     };
   }
 
@@ -445,6 +472,9 @@ export async function getWhoopStatus() {
     lastSyncError: connection.lastSyncError,
     expiresAt: connection.expiresAt.toISOString(),
     workoutCount: connection._count.workoutMappings,
-    needsReviewActivityCount
+    needsReviewActivityCount,
+    scope: connection.scope ?? null,
+    readWorkout: scopeIncludesReadWorkout(connection.scope),
+    ...diag
   };
 }
