@@ -39,9 +39,26 @@ model WorkoutSession {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   sets                   ExerciseSet[]
+  sessionExercises       WorkoutSessionExercise[]
   linkedActivitySessions ActivitySession[]
 
   @@index([startedAt])
+}
+
+/// Per-session exercise metadata: how the canonical Exercise was performed in this workout (not global rename).
+model WorkoutSessionExercise {
+  id          String   @id @default(cuid())
+  sessionId   String
+  exerciseId  String
+  displayName String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  session     WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise    Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, exerciseId])
+  @@index([sessionId])
 }
 
 model ActivitySession {
@@ -175,12 +192,13 @@ model WhoopRecovery {
 }
 
 model Exercise {
-  id             String        @id @default(cuid())
-  name           String        @unique
-  normalizedName String        @unique
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id             String                   @id @default(cuid())
+  name           String                   @unique
+  normalizedName String                   @unique
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
   sets           ExerciseSet[]
+  sessionEntries WorkoutSessionExercise[]
 }
 
 model ExerciseSet {

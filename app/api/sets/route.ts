@@ -1,6 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { appendSessionExerciseNotes } from "@/lib/workout-session-exercise";
 import {
   createSetSchema,
   displayExerciseName,
@@ -33,23 +34,87 @@ export async function POST(request: Request) {
       update: {}
     });
 
-    const set = await prisma.exerciseSet.create({
-      data: {
-        sessionId: body.sessionId,
-        exerciseId: exercise.id,
-        setNumber: body.setNumber,
-        weight: body.weight,
-        reps: body.reps,
-        rpe: body.rpe,
-        rir: body.rir,
-        painFlag: body.painFlag ?? false,
-        painNotes: body.painNotes,
-        notes: body.notes,
-        completedAt: body.completedAt ? new Date(body.completedAt) : undefined
-      },
-      include: {
-        exercise: true
+    const set = await prisma.$transaction(async (tx) => {
+      const created = await tx.exerciseSet.create({
+        data: {
+          sessionId: body.sessionId,
+          exerciseId: exercise.id,
+          setNumber: body.setNumber,
+          weight: body.weight,
+          reps: body.reps,
+          rpe: body.rpe,
+          rir: body.rir,
+          painFlag: body.painFlag ?? false,
+          painNotes: body.painNotes,
+          notes: body.notes,
+          completedAt: body.completedAt ? new Date(body.completedAt) : undefined
+        },
+        include: {
+          exercise: true
+        }
+      });
+
+      const hasExerciseMeta =
+        body.exerciseDisplayName !== undefined ||
+        body.exerciseNotes !== undefined;
+
+      if (hasExerciseMeta) {
+        const display =
+          body.exerciseDisplayName !== undefined
+            ? displayExerciseName(body.exerciseDisplayName)
+            : undefined;
+
+        const row = await tx.workoutSessionExercise.findUnique({
+          where: {
+            sessionId_exerciseId: {
+              sessionId: body.sessionId,
+              exerciseId: exercise.id
+            }
+          }
+        });
+
+        if (!row) {
+          await tx.workoutSessionExercise.create({
+            data: {
+              sessionId: body.sessionId,
+              exerciseId: exercise.id,
+              displayName: display ?? null,
+              notes: body.exerciseNotes ?? null
+            }
+          });
+        } else {
+          await tx.workoutSessionExercise.update({
+            where: { id: row.id },
+            data: {
+              ...(display !== undefined ? { displayName: display } : {}),
+              ...(body.exerciseNotes !== undefined
+                ? {
+                    notes: appendSessionExerciseNotes(
+                      row.notes,
+                      body.exerciseNotes
+                    )
+                  }
+                : {})
+            }
+          });
+        }
+      } else {
+        await tx.workoutSessionExercise.upsert({
+          where: {
+            sessionId_exerciseId: {
+              sessionId: body.sessionId,
+              exerciseId: exercise.id
+            }
+          },
+          create: {
+            sessionId: body.sessionId,
+            exerciseId: exercise.id
+          },
+          update: {}
+        });
       }
+
+      return created;
     });
 
     return json(

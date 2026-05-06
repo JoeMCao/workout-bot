@@ -66,6 +66,10 @@ export const updateSessionSchema = createSessionSchema
 export const createSetSchema = z.object({
   sessionId: z.string().trim().min(1),
   exerciseName: z.string().trim().min(1),
+  /** Session-level label (does not rename global Exercise). */
+  exerciseDisplayName: optionalTrimmedString,
+  /** Session-level execution notes; appended to existing row. Set-level `notes` stays on the set. */
+  exerciseNotes: optionalTrimmedString,
   setNumber: z.number().int().optional(),
   weight: z.number().optional(),
   reps: z.number().int().optional(),
@@ -76,6 +80,36 @@ export const createSetSchema = z.object({
   notes: optionalTrimmedString,
   completedAt: optionalIsoDate
 });
+
+export const updateSessionExerciseSchema = z
+  .object({
+    displayName: z.string().trim().min(1).nullable().optional(),
+    notes: z.string().trim().min(1).optional(),
+    /** When true, `notes` replaces session exercise notes entirely. Default: append to existing. */
+    replaceNotes: z.boolean().optional(),
+    /** Explicitly clear all session exercise notes (ignores `notes`). */
+    clearNotes: z.boolean().optional()
+  })
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.clearNotes && body.notes !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Do not send `notes` together with `clearNotes`."
+      });
+    }
+    const hasPatch =
+      body.displayName !== undefined ||
+      body.notes !== undefined ||
+      body.clearNotes === true;
+    if (!hasPatch) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Provide at least one of: displayName, notes, or clearNotes: true."
+      });
+    }
+  });
 
 export function toDate(value: string | null | undefined) {
   if (value === null) {

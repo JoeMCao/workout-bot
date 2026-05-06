@@ -3,7 +3,8 @@ import type {
   Exercise,
   ExerciseSet,
   Prisma,
-  WorkoutSession
+  WorkoutSession,
+  WorkoutSessionExercise
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -59,6 +60,7 @@ function activityWhereForTrainingLog(
 
 type WorkoutWithSets = WorkoutSession & {
   sets: Array<ExerciseSet & { exercise: Exercise }>;
+  sessionExercises: Array<WorkoutSessionExercise & { exercise: Exercise }>;
   linkedActivitySessions: ActivitySession[];
 };
 
@@ -131,6 +133,15 @@ export type ContextEvent = {
   label: string;
   tags: ContextTag[];
   notes: string | null;
+};
+
+export type LatestStrengthExerciseBlock = {
+  sessionExerciseId: string | null;
+  exerciseId: string;
+  canonicalName: string;
+  displayLabel: string;
+  notes: string | null;
+  setCount: number;
 };
 
 const tagLabels: Record<ContextTag, string> = {
@@ -289,11 +300,28 @@ function tagsForActivity(activity: ActivitySession): ContextTag[] {
   return uniqueTags(tags);
 }
 
-function exerciseSummary(sets: Array<ExerciseSet & { exercise: Exercise }>) {
-  const exerciseNames = Array.from(new Set(sets.map((set) => set.exercise.name)));
-  if (exerciseNames.length === 0) return "No sets logged";
-  if (exerciseNames.length <= 3) return exerciseNames.join(", ");
-  return `${exerciseNames.slice(0, 3).join(", ")} +${exerciseNames.length - 3} more`;
+function exerciseSummary(
+  sets: Array<ExerciseSet & { exercise: Exercise }>,
+  sessionExercises: Array<
+    Pick<WorkoutSessionExercise, "exerciseId" | "displayName">
+  >
+) {
+  const meta = new Map(sessionExercises.map((row) => [row.exerciseId, row]));
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  for (const set of sets) {
+    if (seen.has(set.exerciseId)) continue;
+    seen.add(set.exerciseId);
+    const row = meta.get(set.exerciseId);
+    const label =
+      row?.displayName?.trim() && row.displayName.trim().length > 0
+        ? row.displayName.trim()
+        : set.exercise.name;
+    labels.push(label);
+  }
+  if (labels.length === 0) return "No sets logged";
+  if (labels.length <= 3) return labels.join(", ");
+  return `${labels.slice(0, 3).join(", ")} +${labels.length - 3} more`;
 }
 
 function activityTitle(activity: ActivitySession) {
@@ -314,7 +342,7 @@ function workoutToLogItem(session: WorkoutWithSets): TrainingLogItem {
     dateKey: getLocalDateKey(session.startedAt),
     durationMinutes: workoutDuration(session),
     title: session.goal ?? session.sessionType ?? "Strength session",
-    details: exerciseSummary(session.sets),
+    details: exerciseSummary(session.sets, session.sessionExercises),
     intensity: session.energy ? `Energy ${session.energy}` : null,
     notes: session.notes ?? session.readinessNotes,
     source: "workout_api",
@@ -359,6 +387,7 @@ export async function getTrainingLog(filter: ActivityFilter = "all") {
           take: 250,
           include: {
             sets: { include: { exercise: true }, orderBy: { completedAt: "asc" } },
+            sessionExercises: { include: { exercise: true } },
             linkedActivitySessions: true
           }
         })
@@ -398,6 +427,7 @@ export async function getOverviewData() {
       where: { startedAt: { gte: weekStart } },
       include: {
         sets: { include: { exercise: true } },
+        sessionExercises: { include: { exercise: true } },
         linkedActivitySessions: true
       },
       orderBy: { startedAt: "desc" }
@@ -414,6 +444,7 @@ export async function getOverviewData() {
       take: 8,
       include: {
         sets: { include: { exercise: true }, orderBy: { completedAt: "asc" } },
+        sessionExercises: { include: { exercise: true } },
         linkedActivitySessions: true
       }
     }),
@@ -428,6 +459,49 @@ export async function getOverviewData() {
     ...recentWorkouts.map(workoutToLogItem),
     ...recentActivities.map(activityToLogItem)
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  let latestStrengthExercises: LatestStrengthExerciseBlock[] | null = null;
+  const head = latestItems[0];
+  if (head?.kind === "strength") {
+    const detail = await prisma.workoutSession.findUnique({
+      where: { id: head.id },
+      include: {
+        sessionExercises: { include: { exercise: true } },
+        sets: { include: { exercise: true }, orderBy: { completedAt: "asc" } }
+      }
+    });
+    if (detail && detail.sets.length > 0) {
+      const order: string[] = [];
+      const seen = new Set<string>();
+      for (const s of detail.sets) {
+        if (!seen.has(s.exerciseId)) {
+          seen.add(s.exerciseId);
+          order.push(s.exerciseId);
+        }
+      }
+      const counts = new Map<string, number>();
+      for (const s of detail.sets) {
+        counts.set(s.exerciseId, (counts.get(s.exerciseId) ?? 0) + 1);
+      }
+      latestStrengthExercises = order.map((eid) => {
+        const row = detail.sessionExercises.find((r) => r.exerciseId === eid);
+        const sample = detail.sets.find((s) => s.exerciseId === eid)!;
+        const canonical = sample.exercise.name;
+        const displayLabel =
+          row?.displayName?.trim() && row.displayName.trim().length > 0
+            ? row.displayName.trim()
+            : canonical;
+        return {
+          sessionExerciseId: row?.id ?? null,
+          exerciseId: eid,
+          canonicalName: canonical,
+          displayLabel,
+          notes: row?.notes ?? null,
+          setCount: counts.get(eid) ?? 0
+        };
+      });
+    }
+  }
 
   const thisWeekLog = [
     ...workoutsThisWeek.map(workoutToLogItem),
@@ -462,6 +536,7 @@ export async function getOverviewData() {
 
   return {
     latest: latestItems[0] ?? null,
+    latestStrengthExercises,
     totals: {
       sessions: totalWorkouts + standaloneActivityCount,
       strength: totalWorkouts,

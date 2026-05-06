@@ -41,6 +41,40 @@ export default async function DashboardPage() {
                   ))}
                 </div>
               ) : null}
+              {overview.latest.kind === "strength" &&
+              overview.latestStrengthExercises &&
+              overview.latestStrengthExercises.length > 0 ? (
+                <div className="list" style={{ marginTop: 16 }}>
+                  <p className="eyebrow" style={{ marginBottom: 8 }}>
+                    Exercises (session labels)
+                  </p>
+                  {overview.latestStrengthExercises.map((ex) => (
+                    <div
+                      className="row"
+                      key={ex.exerciseId}
+                      style={{ gridTemplateColumns: "1fr", textAlign: "left" }}
+                    >
+                      <div>
+                        <div className="row-title">{ex.displayLabel}</div>
+                        <div className="row-meta">
+                          {ex.setCount} set{ex.setCount === 1 ? "" : "s"}
+                          {ex.canonicalName !== ex.displayLabel
+                            ? ` · catalog: ${ex.canonicalName}`
+                            : ""}
+                        </div>
+                        {ex.notes ? (
+                          <details style={{ marginTop: 8 }}>
+                            <summary className="muted" style={{ cursor: "pointer" }}>
+                              Exercise notes
+                            </summary>
+                            <p style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{ex.notes}</p>
+                          </details>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </>
           ) : (
             <p className="muted">No sessions logged yet.</p>

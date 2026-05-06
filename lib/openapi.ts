@@ -580,6 +580,49 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
+      "/api/session-exercises/{id}": {
+        patch: {
+          operationId: "updateSessionExercise",
+          summary:
+            "Update session-level exercise metadata (display label and notes) without changing sets or the global Exercise catalog",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+              description: "WorkoutSessionExercise id (from session exercise grouping in getRecentWorkoutSessions)."
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/UpdateSessionExerciseRequest"
+                }
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Updated session exercise",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      sessionExercise: {
+                        $ref: "#/components/schemas/WorkoutSessionExercise"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "/api/time": {
         get: {
           operationId: "getCurrentServerTime",
@@ -1124,12 +1167,70 @@ export function buildOpenApiSpec(baseUrl: string) {
               type: "string"
             },
             notes: {
-              type: "string"
+              type: "string",
+              description: "Set-specific note (one set only)."
+            },
+            exerciseDisplayName: {
+              type: "string",
+              description:
+                "Optional. Session-level label for how the exercise was performed (does not rename the shared Exercise catalog)."
+            },
+            exerciseNotes: {
+              type: "string",
+              description:
+                "Optional. Session-level execution context (tempo, grip, etc.); appended to existing session exercise notes. Use `notes` for set-specific detail."
             },
             completedAt: {
               type: "string",
               format: "date-time"
             }
+          }
+        },
+        UpdateSessionExerciseRequest: {
+          type: "object",
+          description:
+            "At least one of displayName, notes, or clearNotes is required. By default, notes are appended to preserve prior context; use replaceNotes to overwrite.",
+          properties: {
+            displayName: {
+              type: "string",
+              nullable: true,
+              description:
+                "How this exercise was performed in this session; null clears the override (falls back to Exercise.name in UI)."
+            },
+            notes: {
+              type: "string",
+              description:
+                "Execution/context notes for this session’s exercise entry. Appended unless replaceNotes is true."
+            },
+            replaceNotes: {
+              type: "boolean",
+              description: "When true, notes replaces the stored session exercise notes entirely."
+            },
+            clearNotes: {
+              type: "boolean",
+              description:
+                "When true, clears all session exercise notes. Do not send notes in the same request."
+            }
+          },
+          additionalProperties: false
+        },
+        WorkoutSessionExercise: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            sessionId: { type: "string" },
+            exerciseId: { type: "string" },
+            displayName: { type: "string", nullable: true },
+            notes: { type: "string", nullable: true },
+            exercise: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string", description: "Canonical catalog name" }
+              }
+            },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" }
           }
         },
         WorkoutSession: {
@@ -1272,10 +1373,29 @@ export function buildOpenApiSpec(baseUrl: string) {
                     type: "object",
                     properties: {
                       id: {
-                        type: "string"
+                        type: "string",
+                        description: "Canonical Exercise id"
                       },
                       name: {
-                        type: "string"
+                        type: "string",
+                        description: "Canonical Exercise.name"
+                      },
+                      sessionExerciseId: {
+                        type: "string",
+                        nullable: true,
+                        description:
+                          "Id for updateSessionExercise; null if no metadata row exists yet."
+                      },
+                      displayName: {
+                        type: "string",
+                        nullable: true,
+                        description:
+                          "Session-specific label; UI falls back to name when null."
+                      },
+                      notes: {
+                        type: "string",
+                        nullable: true,
+                        description: "Session-level execution notes (not duplicated on each set)."
                       },
                       sets: {
                         type: "array",

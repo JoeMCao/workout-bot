@@ -38,6 +38,9 @@ export async function GET(request: Request) {
           include: {
             exercise: true
           }
+        },
+        sessionExercises: {
+          include: { exercise: true }
         }
       }
     });
@@ -57,11 +60,18 @@ export async function GET(request: Request) {
     });
 
     const mappedSessions = sessions.map((session) => {
+      const metaByExerciseId = new Map(
+        session.sessionExercises.map((row) => [row.exerciseId, row])
+      );
+
       const exercises = new Map<
         string,
         {
           id: string;
           name: string;
+          sessionExerciseId: string | null;
+          displayName: string | null;
+          notes: string | null;
           sets: Array<{
             id: string;
             sessionId: string;
@@ -82,9 +92,13 @@ export async function GET(request: Request) {
       >();
 
       for (const set of session.sets) {
+        const meta = metaByExerciseId.get(set.exerciseId);
         const exercise = exercises.get(set.exerciseId) ?? {
           id: set.exercise.id,
           name: set.exercise.name,
+          sessionExerciseId: meta?.id ?? null,
+          displayName: meta?.displayName ?? null,
+          notes: meta?.notes ?? null,
           sets: []
         };
 
@@ -110,6 +124,7 @@ export async function GET(request: Request) {
       return {
         ...session,
         sets: undefined,
+        sessionExercises: undefined,
         exercises: Array.from(exercises.values())
       };
     });
