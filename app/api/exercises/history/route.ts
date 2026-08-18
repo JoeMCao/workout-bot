@@ -1,7 +1,6 @@
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseLimit } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
-import { normalizeExerciseName } from "@/lib/validation";
+import { getExerciseHistory } from "@/lib/services/workout";
 
 export async function GET(request: Request) {
   const authError = requireApiKey(request);
@@ -16,29 +15,7 @@ export async function GET(request: Request) {
     }
 
     const limit = parseLimit(searchParams.get("limit"));
-    const normalizedName = normalizeExerciseName(name);
-    const sets = await prisma.exerciseSet.findMany({
-      where: {
-        exercise: {
-          normalizedName: {
-            contains: normalizedName
-          }
-        }
-      },
-      orderBy: { completedAt: "desc" },
-      take: limit,
-      include: {
-        exercise: true,
-        session: {
-          select: {
-            id: true,
-            startedAt: true,
-            sessionType: true,
-            goal: true
-          }
-        }
-      }
-    });
+    const sets = await getExerciseHistory(name, limit);
 
     return json({
       query: name.trim(),

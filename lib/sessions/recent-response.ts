@@ -75,6 +75,15 @@ export type WorkoutSessionRecentInput = {
   whoopStrainYesterday: number | null;
   whoopDataFetchedAt: Date | null;
   whoopRaw: unknown;
+  planSlot?: {
+    id: string;
+    weekId: string;
+    plannedDate: string;
+    focus: string;
+    status: string;
+    exerciseNames: unknown;
+    notes: string | null;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
   sets?: SetRowInput[] | null;
@@ -171,6 +180,7 @@ export function serializeWorkoutSessionForRecentApi(session: WorkoutSessionRecen
     whoopStrainYesterday: session.whoopStrainYesterday,
     whoopDataFetchedAt: iso(session.whoopDataFetchedAt),
     whoopRaw: session.whoopRaw,
+    planSlot: session.planSlot ?? null,
     createdAt: session.createdAt.toISOString(),
     updatedAt: session.updatedAt.toISOString(),
     exercises

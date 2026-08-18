@@ -1,10 +1,6 @@
 import { requireApiKey } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { DEFAULT_USER_TIMEZONE } from "@/lib/time";
-
-type DbTimeRow = {
-  dbNow: string;
-};
+import { getDatabaseTime } from "@/lib/services/workout";
 
 export async function GET(request: Request) {
   const authError = requireApiKey(request);
@@ -13,20 +9,14 @@ export async function GET(request: Request) {
   try {
     console.info("[time] endpoint hit");
 
-    const [row] = await prisma.$queryRawUnsafe<DbTimeRow[]>(
-      `SELECT to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "dbNow"`
-    );
-
-    if (!row?.dbNow) {
-      throw new Error("Database time query returned no rows");
-    }
+    const dbNow = await getDatabaseTime();
 
     console.info("[time] returned dbNow", {
-      dbNow: row.dbNow
+      dbNow
     });
 
     return Response.json({
-      dbNow: row.dbNow,
+      dbNow,
       timezone: DEFAULT_USER_TIMEZONE
     });
   } catch (error) {

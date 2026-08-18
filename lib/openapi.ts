@@ -343,6 +343,59 @@ export function buildOpenApiSpec(baseUrl: string) {
     ],
     security: [{ bearerAuth: [] }],
     paths: {
+      "/api/training-plan": {
+        get: {
+          operationId: "getCurrentTrainingPlan",
+          summary: "Get the current weekly training plan",
+          parameters: [
+            {
+              name: "weekStart",
+              in: "query",
+              required: false,
+              description: "Monday in America/Los_Angeles as YYYY-MM-DD. Defaults to the current week.",
+              schema: { type: "string", format: "date" }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Weekly plan with slots and workouts logged in that week",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/TrainingPlanResponse" }
+                }
+              }
+            }
+          }
+        },
+        put: {
+          operationId: "saveTrainingPlan",
+          summary: "Create or update a weekly training plan",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SaveTrainingPlanRequest" }
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Saved weekly plan",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      plan: { $ref: "#/components/schemas/TrainingPlanResponse" },
+                      receipt: { type: "object", nullable: true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "/api/sessions": {
         post: {
           operationId: "createWorkoutSession",
@@ -406,6 +459,11 @@ export function buildOpenApiSpec(baseUrl: string) {
                     },
                     goal: {
                       type: "string"
+                    },
+                    planSlotId: {
+                      type: "string",
+                      nullable: true,
+                      description: "Optional weekly training slot selected for this session."
                     },
                     readinessScore: {
                       type: "integer"
@@ -1152,6 +1210,104 @@ export function buildOpenApiSpec(baseUrl: string) {
         }
       },
       schemas: {
+        TrainingPlanSlot: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            weekId: { type: "string" },
+            plannedDate: { type: "string", format: "date" },
+            focus: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["planned", "in_progress", "completed", "skipped", "replaced"]
+            },
+            exerciseNames: {
+              type: "array",
+              items: { type: "string" },
+              nullable: true,
+              description: "Exercise names only; loads and reps are chosen from live history."
+            },
+            notes: { type: "string", nullable: true },
+            workoutSession: {
+              type: "object",
+              nullable: true,
+              additionalProperties: true
+            }
+          }
+        },
+        SaveTrainingPlanRequest: {
+          type: "object",
+          required: ["weekStart", "slots"],
+          properties: {
+            weekStart: {
+              type: "string",
+              format: "date",
+              description: "Monday in America/Los_Angeles."
+            },
+            objective: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["draft", "active", "complete"]
+            },
+            slots: {
+              type: "array",
+              minItems: 1,
+              maxItems: 7,
+              items: {
+                type: "object",
+                required: ["plannedDate", "focus"],
+                properties: {
+                  plannedDate: { type: "string", format: "date" },
+                  focus: { type: "string" },
+                  status: {
+                    type: "string",
+                    enum: ["planned", "in_progress", "completed", "skipped", "replaced"]
+                  },
+                  exerciseNames: {
+                    type: "array",
+                    items: { type: "string" },
+                    maxItems: 20
+                  },
+                  notes: { type: "string" }
+                },
+                additionalProperties: false
+              }
+            }
+          },
+          additionalProperties: false
+        },
+        TrainingPlanResponse: {
+          type: "object",
+          properties: {
+            weekStart: { type: "string", format: "date" },
+            weekEnd: { type: "string", format: "date" },
+            today: { type: "string", format: "date" },
+            timezone: { type: "string" },
+            plan: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: { type: "string" },
+                objective: { type: "string", nullable: true },
+                status: { type: "string" },
+                createdAt: { type: "string", format: "date-time" },
+                updatedAt: { type: "string", format: "date-time" }
+              }
+            },
+            slots: {
+              type: "array",
+              items: { $ref: "#/components/schemas/TrainingPlanSlot" }
+            },
+            nextSlot: {
+              allOf: [{ $ref: "#/components/schemas/TrainingPlanSlot" }],
+              nullable: true
+            },
+            sessions: {
+              type: "array",
+              items: { $ref: "#/components/schemas/WorkoutSession" }
+            }
+          }
+        },
         CreateSessionRequest: {
           type: "object",
           properties: {
@@ -1167,6 +1323,10 @@ export function buildOpenApiSpec(baseUrl: string) {
             },
             goal: {
               type: "string"
+            },
+            planSlotId: {
+              type: "string",
+              description: "Optional weekly training slot selected for this session."
             },
             readinessScore: {
               type: "integer"
@@ -1308,6 +1468,14 @@ export function buildOpenApiSpec(baseUrl: string) {
             },
             goal: {
               type: "string",
+              nullable: true
+            },
+            planSlotId: {
+              type: "string",
+              nullable: true
+            },
+            planSlot: {
+              allOf: [{ $ref: "#/components/schemas/TrainingPlanSlot" }],
               nullable: true
             },
             readinessScore: {

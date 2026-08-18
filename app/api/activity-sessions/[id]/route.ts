@@ -1,23 +1,11 @@
 import { requireApiKey } from "@/lib/auth";
-import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { handleRouteError, json, parseJson } from "@/lib/http";
 import {
-  activitySessionUpdateData,
-  updateActivitySessionSchema
-} from "@/lib/validation";
-
-const activityInclude = {
-  relatedWorkoutSession: {
-    select: {
-      id: true,
-      startedAt: true,
-      timeSource: true,
-      timezone: true,
-      sessionType: true,
-      goal: true
-    }
-  }
-} as const;
+  deleteActivitySession,
+  getActivitySession,
+  updateActivitySession
+} from "@/lib/services/activity";
+import { updateActivitySessionSchema } from "@/lib/validation";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -29,14 +17,7 @@ export async function GET(request: Request, context: RouteContext) {
 
   try {
     const { id } = await context.params;
-    const activity = await prisma.activitySession.findUnique({
-      where: { id },
-      include: activityInclude
-    });
-
-    if (!activity) {
-      return errorJson("Activity not found", 404);
-    }
+    const activity = await getActivitySession(id);
 
     return json({ activity });
   } catch (error) {
@@ -50,28 +31,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   try {
     const { id } = await context.params;
-    const existing = await prisma.activitySession.findUnique({ where: { id } });
-
-    if (!existing) {
-      return errorJson("Activity not found", 404);
-    }
-
     const body = updateActivitySessionSchema.parse(await parseJson(request));
-
-    if (body.relatedWorkoutSessionId) {
-      const workout = await prisma.workoutSession.findUnique({
-        where: { id: body.relatedWorkoutSessionId }
-      });
-      if (!workout) {
-        return errorJson("Workout session not found", 404);
-      }
-    }
-
-    const activity = await prisma.activitySession.update({
-      where: { id },
-      data: activitySessionUpdateData(body),
-      include: activityInclude
-    });
+    const activity = await updateActivitySession(id, body);
 
     return json({ activity });
   } catch (error) {
@@ -85,15 +46,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   try {
     const { id } = await context.params;
-    const existing = await prisma.activitySession.findUnique({ where: { id } });
-
-    if (!existing) {
-      return errorJson("Activity not found", 404);
-    }
-
-    await prisma.activitySession.delete({ where: { id } });
-
-    return json({ ok: true });
+    return json(await deleteActivitySession(id));
   } catch (error) {
     return handleRouteError(error);
   }

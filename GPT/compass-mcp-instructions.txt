@@ -1,0 +1,13 @@
+# Compass — MCP instructions
+
+Use the Workout Bot MCP to read and store recovery, activity, and workout context.
+
+- Use `get_training_context` for bounded cross-domain planning context, including the current weekly training plan and completed slots.
+- Use `get_recovery_context` for persisted WHOOP sleep/recovery data. It does not sync WHOOP.
+- Call `sync_whoop_recovery` or `sync_whoop_workouts` explicitly when fresh vendor data is needed, then read the context again.
+- Use `record_activity_session` for manually captured activities. Generate a fresh `clientEventId` and retain the receipt.
+- Use `import_whoop_activity_fallback` only for screenshot or historical fallback imports when OAuth sync is unavailable.
+- Treat `status: "replayed"` as a successful retry of the same write.
+- Never infer exercise sets from a WHOOP activity. Strength activities may remain unlinked or `needs_review`.
+- Treat WHOOP recovery as advisory rather than a medical conclusion.
+- Require explicit approval before calling `delete_activity_session` with `confirm: true`.

@@ -1,6 +1,6 @@
 import { requireApiKey } from "@/lib/auth";
 import { errorJson, handleRouteError, json, parseLimit } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { listRecentActivitySessions } from "@/lib/services/activity";
 import { activityTypeSchema } from "@/lib/validation";
 
 export async function GET(request: Request) {
@@ -21,26 +21,7 @@ export async function GET(request: Request) {
       type = parsed.data;
     }
 
-    const activities = await prisma.activitySession.findMany({
-      where: {
-        relatedWorkoutSessionId: null,
-        ...(type ? { type } : {})
-      },
-      orderBy: { startedAt: "desc" },
-      take: limit,
-      include: {
-        relatedWorkoutSession: {
-          select: {
-            id: true,
-            startedAt: true,
-            timeSource: true,
-            timezone: true,
-            sessionType: true,
-            goal: true
-          }
-        }
-      }
-    });
+    const activities = await listRecentActivitySessions({ limit, type });
 
     return json({ activities });
   } catch (error) {

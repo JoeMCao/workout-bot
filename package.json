@@ -19,9 +19,11 @@
     "wipe:whoop-mappings": "tsx scripts/wipe-whoop-workout-mappings.ts --yes"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "latest",
     "dotenv": "^17.4.2",
+    "mcp-handler": "^2.1.0",
     "next": "latest",
     "pg": "^8.20.0",
     "react": "latest",

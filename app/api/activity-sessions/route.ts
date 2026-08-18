@@ -1,11 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
-import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
-import { activitySessionTimeSource, getServerNow } from "@/lib/time";
-import {
-  activitySessionCreateData,
-  createActivitySessionSchema
-} from "@/lib/validation";
+import { handleRouteError, json, parseJson } from "@/lib/http";
+import { createActivitySession } from "@/lib/services/activity";
+import { createActivitySessionSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
   const authError = requireApiKey(request);
@@ -13,28 +9,9 @@ export async function POST(request: Request) {
 
   try {
     const body = createActivitySessionSchema.parse(await parseJson(request));
-    const startedAtRaw = body.startedAt;
-    const hasStartedAt = startedAtRaw != null;
-    const startedAt = hasStartedAt ? new Date(startedAtRaw) : getServerNow();
-    const timeSource = hasStartedAt
-      ? activitySessionTimeSource.userProvided
-      : activitySessionTimeSource.apiDefault;
-
-    console.info(
-      `[activity-session] create timeSource=${timeSource} type=${body.type}`
-    );
-
-    if (body.relatedWorkoutSessionId) {
-      const workout = await prisma.workoutSession.findUnique({
-        where: { id: body.relatedWorkoutSessionId }
-      });
-      if (!workout) {
-        return errorJson("Workout session not found", 404);
-      }
-    }
-
-    const activity = await prisma.activitySession.create({
-      data: activitySessionCreateData(body, { startedAt, timeSource })
+    const { value: activity } = await createActivitySession(body, {
+      source: "rest",
+      clientEventId: request.headers.get("idempotency-key")?.trim() || undefined
     });
 
     return json({ activity }, 201);

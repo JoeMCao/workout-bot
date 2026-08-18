@@ -74,6 +74,15 @@ test("serializeWorkoutSessionForRecentApi uses simplified exercise shape", () =>
     whoopStrainYesterday: null,
     whoopDataFetchedAt: null,
     whoopRaw: null,
+    planSlot: {
+      id: "slot-1",
+      weekId: "week-1",
+      plannedDate: "2026-08-03",
+      focus: "pull",
+      status: "completed",
+      exerciseNames: ["Pull-Up", "Row"],
+      notes: null
+    },
     createdAt: new Date("2026-05-01T10:00:00.000Z"),
     updatedAt: new Date("2026-05-01T10:00:00.000Z"),
     sets: [
@@ -88,4 +97,6 @@ test("serializeWorkoutSessionForRecentApi uses simplified exercise shape", () =>
   const out = serializeWorkoutSessionForRecentApi(session);
   assert.equal(out.exercises[0].name, "Bench Press");
   assert.equal(Object.keys(out.exercises[0]).sort().join(","), "id,name,sets");
+  assert.equal(out.planSlot?.plannedDate, "2026-08-03");
+  assert.deepEqual(out.planSlot?.exerciseNames, ["Pull-Up", "Row"]);
 });

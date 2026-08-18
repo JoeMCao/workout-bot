@@ -11,6 +11,7 @@ Workout Bot API lets you talk to a GPT from your phone during training while the
 - Stores session-level readiness signals such as low back pain, elbow irritation, neck tightness, fatigue, motivation, and soreness areas.
 - Supports WHOOP-related recovery fields for sleep, HRV, resting heart rate, strain, and raw payloads.
 - Retrieves recent sessions and exercise history so a GPT can adjust training based on real history.
+- Stores a lightweight weekly training plan with dated focus slots and planned exercise names, while keeping actual reps and weights in the existing set log.
 - Logs **activity sessions** separately from strength work: cardio, endurance, sports, recovery (sauna, cold plunge), and mobility, with optional WHOOP-style metrics and an optional link to a workout session.
 - Exposes a public OpenAPI `3.1.0` schema for easy Custom GPT Action import.
 - Protects all workout data routes with a private bearer API key.
@@ -44,6 +45,8 @@ That makes the GPT useful across sessions. It can see recent performance, avoid 
 - `GET /api/activity-sessions/:id`, `PATCH /api/activity-sessions/:id`, `DELETE /api/activity-sessions/:id`: read, update, or delete one activity.
 - `POST /api/activity-sessions/from-whoop`: **legacy/manual fallback**—create an activity from GPT-parsed WHOOP metrics (e.g. screenshot); prefer WHOOP OAuth + `POST /api/whoop/sync` for normal use (`source` defaults to `whoop_screenshot`).
 - `GET /api/exercises/history?name=lat%20pulldown&limit=10`: fetch recent set history for an exercise.
+- `GET /api/training-plan`: fetch the current weekly plan, next uncompleted slot, and workouts logged that week.
+- `PUT /api/training-plan`: create or update a weekly plan. Slots store focus and exercise names only; loads and reps are chosen on the training day.
 - `GET /api/openapi`: public OpenAPI schema for GPT Actions.
 
 ## Security Model
@@ -134,7 +137,7 @@ See `docs/WHOOP_DATA_MODEL_PLAN.md` for context.
 2. Open `https://YOUR_VERCEL_DOMAIN/api/openapi`.
 3. Paste the returned JSON into the Custom GPT Action schema editor.
 4. Configure Action authentication as bearer/API key auth using `WORKOUT_API_KEY`.
-5. In your GPT instructions, tell it to create a session at workout start, log sets after completion, check exercise history before prescribing loads, update readiness signals when pain or fatigue changes, and end the session when done. For non-strength work, prefer **WHOOP OAuth + sync** (`/api/whoop/status`, `/api/whoop/sync`, recent activities); use **`/api/activity-sessions/from-whoop`** only as a legacy fallback (e.g. screenshot parse). See `GPT/gpt-instructions.txt` and `GPT/activity-session-logging.md`.
+5. In your GPT instructions, tell it to read `/api/training-plan` before recommending a workout, select the next uncompleted slot, pass its `planSlotId` when creating the session, check exercise history before prescribing loads, adjust exercises and loads for current recovery, update readiness signals when pain or fatigue changes, and end the session when done. If no plan exists, have it propose one and save it only after approval. For non-strength work, prefer **WHOOP OAuth + sync** (`/api/whoop/status`, `/api/whoop/sync`, recent activities); use **`/api/activity-sessions/from-whoop`** only as a legacy fallback (e.g. screenshot parse). See `GPT/gpt-instructions.txt` and `GPT/coach-mcp-instructions.txt`.
 
 ## Example Requests
 

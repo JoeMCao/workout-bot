@@ -1,11 +1,7 @@
 import { requireApiKey } from "@/lib/auth";
-import { errorJson, handleRouteError, json, parseJson } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
-import {
-  createSetSchema,
-  displayExerciseName,
-  normalizeExerciseName
-} from "@/lib/validation";
+import { handleRouteError, json, parseJson } from "@/lib/http";
+import { createCompletedSet } from "@/lib/services/workout";
+import { createSetSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
   const authError = requireApiKey(request);
@@ -13,43 +9,9 @@ export async function POST(request: Request) {
 
   try {
     const body = createSetSchema.parse(await parseJson(request));
-    const session = await prisma.workoutSession.findUnique({
-      where: { id: body.sessionId },
-      select: { id: true }
-    });
-
-    if (!session) {
-      return errorJson("Session not found", 404);
-    }
-
-    const exerciseName = displayExerciseName(body.exerciseName);
-    const normalizedName = normalizeExerciseName(body.exerciseName);
-    const exercise = await prisma.exercise.upsert({
-      where: { normalizedName },
-      create: {
-        name: exerciseName,
-        normalizedName
-      },
-      update: {}
-    });
-
-    const set = await prisma.exerciseSet.create({
-      data: {
-        sessionId: body.sessionId,
-        exerciseId: exercise.id,
-        setNumber: body.setNumber,
-        weight: body.weight,
-        reps: body.reps,
-        rpe: body.rpe,
-        rir: body.rir,
-        painFlag: body.painFlag ?? false,
-        painNotes: body.painNotes,
-        notes: body.notes,
-        completedAt: body.completedAt ? new Date(body.completedAt) : undefined
-      },
-      include: {
-        exercise: true
-      }
+    const { value: set } = await createCompletedSet(body, {
+      source: "rest",
+      clientEventId: request.headers.get("idempotency-key")?.trim() || undefined
     });
 
     return json(
@@ -59,8 +21,8 @@ export async function POST(request: Request) {
           sessionId: set.sessionId,
           exerciseId: set.exerciseId,
           exercise: {
-            id: exercise.id,
-            name: exercise.name
+            id: set.exercise.id,
+            name: set.exercise.name
           },
           setNumber: set.setNumber,
           weight: set.weight,

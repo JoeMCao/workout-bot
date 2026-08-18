@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { ServiceError, WriteConflictError } from "@/lib/services/errors";
 
 export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -20,6 +21,16 @@ export function errorJson(message: string, status = 400, details?: unknown) {
 export function handleRouteError(error: unknown) {
   if (error instanceof ZodError) {
     return errorJson("Invalid request body", 400, error.flatten());
+  }
+
+  if (error instanceof WriteConflictError) {
+    return errorJson(error.message, error.httpStatus, {
+      code: error.code
+    });
+  }
+
+  if (error instanceof ServiceError) {
+    return errorJson(error.message, error.status);
   }
 
   console.error(error);

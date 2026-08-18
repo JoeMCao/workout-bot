@@ -1,6 +1,6 @@
 import { requireApiKey } from "@/lib/auth";
 import { handleRouteError, json, parseLimit } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { getRecentWorkoutSessions } from "@/lib/services/workout";
 import { serializeRecentWorkoutSessionsForApi } from "@/lib/sessions/recent-response";
 import { Prisma } from "@prisma/client";
 
@@ -53,18 +53,7 @@ export async function GET(request: Request) {
 
     logRecent({ phase: "query_start", limit });
 
-    const sessions = await prisma.workoutSession.findMany({
-      orderBy: { startedAt: "desc" },
-      take: limit,
-      include: {
-        sets: {
-          orderBy: { completedAt: "asc" },
-          include: {
-            exercise: true
-          }
-        }
-      }
-    });
+    const sessions = await getRecentWorkoutSessions(limit);
 
     logRecent({
       phase: "query_success",

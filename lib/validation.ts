@@ -23,6 +23,15 @@ const nullableString = z.string().trim().min(1).nullable().optional();
 const nullableIsoDate = z.string().datetime({ offset: true }).nullable().optional();
 const nullableNumber = z.number().nullable().optional();
 const nullableInt = z.number().int().nullable().optional();
+const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const planStatus = z.enum(["draft", "active", "complete"]);
+const slotStatus = z.enum([
+  "planned",
+  "in_progress",
+  "completed",
+  "skipped",
+  "replaced"
+]);
 
 export const sessionSignalsSchema = z.object({
   lowBackPain: z.boolean().nullable().optional(),
@@ -49,6 +58,7 @@ export const createSessionSchema = z
     startedAt: optionalIsoDate,
     sessionType: optionalTrimmedString,
     goal: optionalTrimmedString,
+    planSlotId: z.string().trim().min(1).optional(),
     readinessScore: z.number().int().optional(),
     energy: z.number().int().optional(),
     soreness: optionalTrimmedString,
@@ -59,9 +69,25 @@ export const createSessionSchema = z
 
 export const updateSessionSchema = createSessionSchema
   .extend({
-    endedAt: optionalIsoDate.nullable()
+    endedAt: optionalIsoDate.nullable(),
+    planSlotId: z.string().trim().min(1).nullable().optional()
   })
   .partial();
+
+export const trainingSlotSchema = z.object({
+  plannedDate: localDate,
+  focus: z.string().trim().min(1),
+  status: slotStatus.optional(),
+  exerciseNames: z.array(z.string().trim().min(1)).max(20).optional(),
+  notes: optionalTrimmedString
+});
+
+export const saveTrainingPlanSchema = z.object({
+  weekStart: localDate,
+  objective: optionalTrimmedString,
+  status: planStatus.optional(),
+  slots: z.array(trainingSlotSchema).min(1).max(7)
+});
 
 export const createSetSchema = z.object({
   sessionId: z.string().trim().min(1),

@@ -36,12 +36,42 @@ model WorkoutSession {
   whoopStrainYesterday    Float?
   whoopDataFetchedAt      DateTime?
   whoopRaw                Json?
+  planSlotId     String?        @unique
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   sets                   ExerciseSet[]
   linkedActivitySessions ActivitySession[]
+  planSlot        TrainingSlot? @relation(fields: [planSlotId], references: [id], onDelete: SetNull)
 
   @@index([startedAt])
+}
+
+model TrainingWeek {
+  id             String         @id @default(cuid())
+  weekStart      String         @unique
+  timezone       String         @default("America/Los_Angeles")
+  objective      String?
+  status         String         @default("active")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  slots          TrainingSlot[]
+}
+
+model TrainingSlot {
+  id            String         @id @default(cuid())
+  weekId        String
+  plannedDate   String
+  focus         String
+  status        String         @default("planned")
+  exerciseNames Json?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  week          TrainingWeek  @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  workoutSession WorkoutSession?
+
+  @@unique([weekId, plannedDate])
+  @@index([plannedDate, status])
 }
 
 model ActivitySession {
@@ -203,4 +233,18 @@ model ExerciseSet {
 
   @@index([sessionId, completedAt])
   @@index([exerciseId, completedAt])
+}
+
+model WriteEvent {
+  id             String   @id @default(cuid())
+  clientEventId  String   @unique
+  operation      String
+  entityType     String
+  entityId       String
+  payloadHash    String
+  source         String
+  createdAt      DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([source, createdAt])
 }
