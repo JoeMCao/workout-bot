@@ -14,6 +14,7 @@ import {
   getTrainingContext
 } from "@/lib/services/planning";
 import { getTrainingPlan, saveTrainingPlan } from "@/lib/services/training-plan";
+import { getWeeklyTrainingReview } from "@/lib/services/weekly-training-review";
 import {
   createApprovedExercise,
   listApprovedExercises
@@ -178,6 +179,20 @@ const handler = createMcpHandler(
     );
 
     server.registerTool(
+      "get_weekly_training_review",
+      {
+        title: "Get Weekly Training Review",
+        description:
+          "Summarize one week of actual strength, cardio, Zone 2, heat, surf, sleep, and recovery data. Defaults to the prior week and keeps surf separate from prescribed Zone 2.",
+        inputSchema: {
+          weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+        },
+        annotations: { readOnlyHint: true, openWorldHint: false }
+      },
+      (args) => callTool(() => getWeeklyTrainingReview(args))
+    );
+
+    server.registerTool(
       "list_approved_exercises",
       {
         title: "List Approved Exercises",
@@ -233,7 +248,7 @@ const handler = createMcpHandler(
       {
         title: "Save Training Plan",
         description:
-          "Create or update one weekly plan. Store exercise names only; choose loads and substitutions from current recovery and logged history on the training day.",
+          "Create or update one weekly plan with aggregate strength/cardio/Zone 2/heat targets plus dated strength slots. Store exercise names only; choose loads and substitutions from current recovery and logged history on the training day.",
         inputSchema: { ...saveTrainingPlanSchema.shape, clientEventId },
         annotations: { idempotentHint: true, openWorldHint: false }
       },

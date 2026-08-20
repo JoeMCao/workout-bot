@@ -396,6 +396,34 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
+      "/api/training-review": {
+        get: {
+          operationId: "getWeeklyTrainingReview",
+          summary: "Review actual training, activities, sleep, and recovery for one week",
+          description:
+            "Defaults to the prior week. Use after WHOOP workout and health-context sync when preparing a new weekly plan.",
+          parameters: [
+            {
+              name: "weekStart",
+              in: "query",
+              required: false,
+              description:
+                "Monday in America/Los_Angeles as YYYY-MM-DD. Defaults to the prior week.",
+              schema: { type: "string", format: "date" }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Weekly actuals and recovery summary",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/WeeklyTrainingReview" }
+                }
+              }
+            }
+          }
+        }
+      },
       "/api/sessions": {
         post: {
           operationId: "createWorkoutSession",
@@ -1299,6 +1327,19 @@ export function buildOpenApiSpec(baseUrl: string) {
           },
           additionalProperties: false
         },
+        WeeklyTrainingTargets: {
+          type: "object",
+          description:
+            "Aggregate minimums for the week. Dated TrainingPlanSlots remain the source of truth for specific strength sessions.",
+          properties: {
+            strengthSessions: { type: "integer", minimum: 0, maximum: 7 },
+            cardioSessions: { type: "integer", minimum: 0, maximum: 14 },
+            zone2Minutes: { type: "integer", minimum: 0, maximum: 600 },
+            heatSessions: { type: "integer", minimum: 0, maximum: 14 },
+            heatMinutes: { type: "integer", minimum: 0, maximum: 600 }
+          },
+          additionalProperties: false
+        },
         TrainingPlanSlot: {
           type: "object",
           properties: {
@@ -1334,6 +1375,7 @@ export function buildOpenApiSpec(baseUrl: string) {
               description: "Monday in America/Los_Angeles."
             },
             objective: { type: "string" },
+            targets: { $ref: "#/components/schemas/WeeklyTrainingTargets" },
             status: {
               type: "string",
               enum: ["draft", "active", "complete"]
@@ -1380,6 +1422,10 @@ export function buildOpenApiSpec(baseUrl: string) {
               properties: {
                 id: { type: "string" },
                 objective: { type: "string", nullable: true },
+                targets: {
+                  allOf: [{ $ref: "#/components/schemas/WeeklyTrainingTargets" }],
+                  nullable: true
+                },
                 status: { type: "string" },
                 createdAt: { type: "string", format: "date-time" },
                 updatedAt: { type: "string", format: "date-time" }
@@ -1396,6 +1442,58 @@ export function buildOpenApiSpec(baseUrl: string) {
             sessions: {
               type: "array",
               items: { $ref: "#/components/schemas/WorkoutSession" }
+            }
+          }
+        },
+        WeeklyTrainingReview: {
+          type: "object",
+          properties: {
+            weekStart: { type: "string", format: "date" },
+            weekEnd: { type: "string", format: "date" },
+            timezone: { type: "string" },
+            plan: { $ref: "#/components/schemas/TrainingPlanResponse" },
+            targets: {
+              allOf: [{ $ref: "#/components/schemas/WeeklyTrainingTargets" }],
+              nullable: true
+            },
+            actual: {
+              type: "object",
+              properties: {
+                strengthSessions: { type: "integer" },
+                cardioSessions: { type: "integer" },
+                cardioMinutes: { type: "integer" },
+                zone2Minutes: { type: "integer" },
+                runSessions: { type: "integer" },
+                heatSessions: { type: "integer" },
+                heatMinutes: { type: "integer" },
+                surfSessions: { type: "integer" },
+                surfMinutes: { type: "integer" }
+              }
+            },
+            activitiesByType: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  type: { type: "string" },
+                  sessions: { type: "integer" },
+                  durationMinutes: { type: "integer" },
+                  zone2Minutes: { type: "integer" }
+                }
+              }
+            },
+            recovery: {
+              type: "object",
+              properties: {
+                daysWithRecovery: { type: "integer" },
+                averageRecoveryScore: { type: "number", nullable: true },
+                daysWithSleep: { type: "integer" },
+                averageSleepPerformance: { type: "number", nullable: true }
+              }
+            },
+            countingRules: {
+              type: "object",
+              additionalProperties: { type: "string" }
             }
           }
         },

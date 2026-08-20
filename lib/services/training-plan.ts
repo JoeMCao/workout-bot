@@ -167,6 +167,7 @@ async function readPlan(weekStart: string) {
       ? {
           id: plan.id,
           objective: plan.objective,
+          targets: plan.targets,
           status: plan.status,
           createdAt: plan.createdAt,
           updatedAt: plan.updatedAt
@@ -187,10 +188,18 @@ async function savePlanRecord(db: Prisma.TransactionClient, body: TrainingPlanBo
       weekStart: body.weekStart,
       timezone: DEFAULT_USER_TIMEZONE,
       objective: body.objective,
+      targets:
+        body.targets === undefined
+          ? undefined
+          : (body.targets as Prisma.InputJsonValue),
       status: body.status ?? "active"
     },
     update: {
       objective: body.objective,
+      targets:
+        body.targets === undefined
+          ? undefined
+          : (body.targets as Prisma.InputJsonValue),
       status: body.status
     },
     select: { id: true }

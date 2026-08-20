@@ -1,6 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { activitySessionTimeSource, DEFAULT_USER_TIMEZONE } from "@/lib/time";
+import { weeklyTrainingTargetsSchema } from "./training-targets";
+
+export { weeklyTrainingTargetsSchema } from "./training-targets";
 
 const optionalIsoDate = z.string().datetime({ offset: true }).optional();
 const optionalTrimmedString = z.string().trim().min(1).optional();
@@ -85,6 +88,7 @@ export const trainingSlotSchema = z.object({
 export const saveTrainingPlanSchema = z.object({
   weekStart: localDate,
   objective: optionalTrimmedString,
+  targets: weeklyTrainingTargetsSchema.optional(),
   status: planStatus.optional(),
   slots: z.array(trainingSlotSchema).min(1).max(7)
 });

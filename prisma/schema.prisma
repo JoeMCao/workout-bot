@@ -51,6 +51,7 @@ model TrainingWeek {
   weekStart      String         @unique
   timezone       String         @default("America/Los_Angeles")
   objective      String?
+  targets        Json?
   status         String         @default("active")
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt

@@ -3,6 +3,9 @@
 Use the Workout Bot MCP to read and store recovery, activity, and workout context.
 
 - Use `get_training_context` for bounded cross-domain planning context, including the current weekly training plan and completed slots.
+- Before a new weekly plan, sync fresh WHOOP data when available, then use `get_weekly_training_review` for the prior week's actual strength, cardio, Zone 2, heat, surf, sleep, and recovery totals.
+- Store aggregate weekly targets on the TrainingWeek. Keep dated TrainingSlots for strength sessions; do not turn Zone 2, sauna, or surf into exercise names.
+- Report surf separately and do not count it toward prescribed Zone 2 unless Jose explicitly changes that rule.
 - Use `get_recovery_context` for persisted WHOOP sleep/recovery data. It does not sync WHOOP.
 - Call `sync_whoop_recovery` or `sync_whoop_workouts` explicitly when fresh vendor data is needed, then read the context again.
 - Use `record_activity_session` for manually captured activities. Generate a fresh `clientEventId` and retain the receipt.
