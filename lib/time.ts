@@ -91,6 +91,18 @@ export function getLocalDateKey(date: Date, timeZone = DEFAULT_USER_TIMEZONE) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+/** Resolve local midnight for a `YYYY-MM-DD` calendar day to its UTC instant. */
+export function getStartOfLocalDateUtc(
+  ymd: string,
+  timeZone = DEFAULT_USER_TIMEZONE
+) {
+  const [year, month, day] = ymd.split("-").map(Number);
+  if (!year || !month || !day) throw new Error(`Invalid YYYY-MM-DD: ${ymd}`);
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  const offsetMs = getTimeZoneOffsetMs(utcGuess, timeZone);
+  return new Date(utcGuess.getTime() - offsetMs);
+}
+
 /** Shift a calendar day label `YYYY-MM-DD` by whole days in the given timezone (noon anchor avoids DST edge cases). */
 export function shiftLocalDateKey(
   ymd: string,

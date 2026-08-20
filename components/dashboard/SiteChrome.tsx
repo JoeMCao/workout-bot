@@ -7,25 +7,26 @@ const navItems = [
   { href: "/strength", label: "Strength" },
   { href: "/cardio", label: "Cardio" },
   { href: "/recovery", label: "Recovery" },
-  { href: "/insights", label: "Insights" },
-  { href: "/privacy", label: "Privacy" }
+  { href: "/data-health", label: "Data Health" }
 ];
 
 export function SiteChrome({
   eyebrow,
   title,
   description,
+  compact = false,
   children
 }: {
   eyebrow: string;
   title: string;
   description: string;
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
     <main className="shell">
       <div className="page">
-        <header className="topbar">
+        <header className={compact ? "topbar topbar-compact" : "topbar"}>
           <div className="brand">
             <p className="eyebrow">{eyebrow}</p>
             <h1>{title}</h1>
@@ -40,6 +41,9 @@ export function SiteChrome({
           </nav>
         </header>
         {children}
+        <footer className="site-footer">
+          <Link href="/privacy">Privacy</Link>
+        </footer>
       </div>
     </main>
   );

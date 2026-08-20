@@ -4,6 +4,7 @@ import {
   DEFAULT_USER_TIMEZONE,
   formatLocalDate,
   getLocalDateKey,
+  getStartOfLocalDateUtc,
   getStartOfLocalWeekUtc
 } from "./time.ts";
 
@@ -30,5 +31,16 @@ test("getStartOfLocalWeekUtc returns Monday midnight in the user timezone", () =
       DEFAULT_USER_TIMEZONE
     ).toISOString(),
     "2026-05-04T07:00:00.000Z"
+  );
+});
+
+test("getStartOfLocalDateUtc respects Los Angeles daylight saving time", () => {
+  assert.equal(
+    getStartOfLocalDateUtc("2026-08-19").toISOString(),
+    "2026-08-19T07:00:00.000Z"
+  );
+  assert.equal(
+    getStartOfLocalDateUtc("2026-01-19").toISOString(),
+    "2026-01-19T08:00:00.000Z"
   );
 });
