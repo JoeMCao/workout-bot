@@ -9,6 +9,7 @@ import {
 } from "@/lib/services/workout";
 import { listRecentActivitySessions } from "@/lib/services/activity";
 import { getTrainingPlan } from "@/lib/services/training-plan";
+import { listApprovedExercises } from "@/lib/services/exercise-catalog";
 
 function publicRecoveryContext(
   context: Awaited<ReturnType<typeof queryWhoopHealthContextDays>>["context"]
@@ -107,13 +108,14 @@ export async function getTrainingContext({
   recoveryDays?: number;
 } = {}) {
   const names = [...new Set(exerciseNames.map((name) => name.trim()).filter(Boolean))].slice(0, 5);
-  const [dbNow, sessions, activities, recovery, whoop, historyRows] =
+  const [dbNow, sessions, activities, recovery, whoop, exerciseCatalog, historyRows] =
     await Promise.all([
       getDatabaseTime(),
       getRecentWorkoutSessions(sessionLimit),
       listRecentActivitySessions({ limit: activityLimit }),
       getRecoveryContext({ days: recoveryDays }),
       getWhoopStatus(),
+      listApprovedExercises(),
       Promise.all(names.map(async (name) => [name, await getExerciseHistory(name, 10)] as const))
     ]);
 
@@ -124,6 +126,7 @@ export async function getTrainingContext({
     trainingPlan,
     workouts: serializeRecentWorkoutSessionsForApi(sessions),
     activities: activities.map(publicActivityContext),
+    exerciseCatalog,
     exerciseHistory: Object.fromEntries(
       historyRows.map(([name, rows]) => [name, rows.map(serializeHistoryRow)])
     ),

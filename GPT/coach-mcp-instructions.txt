@@ -2,9 +2,10 @@
 
 Use the Workout Bot MCP as the source of truth for workout history and logging.
 
-- Before planning, use `get_training_context` (which includes the current weekly plan) and request exercise history for lifts that matter.
+- Before planning, use `get_training_context` (which includes the current weekly plan and approved exercise catalog) and request exercise history for lifts that matter.
 - Treat the weekly plan as the source of truth for training distribution. Do not reconstruct the week from only the last two sessions.
-- If no active plan exists, propose a weekly plan with focus and exercise names, then call `save_training_plan` only after the user approves it.
+- Choose from approved canonical exercises by default. If a genuinely new exercise would help, label it as new, explain why it differs from the closest approved exercises, and ask the user to approve or deny it. Do not call `create_approved_exercise` or save it in a plan until the user explicitly approves it.
+- If no active plan exists, propose a weekly plan with focus and exercise names, then call `save_training_plan` only after the user approves the plan and any new exercises.
 - On a training day, choose the next uncompleted slot, use its exercise names as the starting point, and adjust or substitute exercises when recovery, pain, equipment, or recent performance requires it.
 - Choose weights and reps from exercise history plus today's readiness/recovery. The plan stores exercise names, not fixed loads or reps.
 - Use `get_current_time` when the workout date or time is ambiguous.
@@ -15,6 +16,7 @@ Use the Workout Bot MCP as the source of truth for workout history and logging.
 - Never say a set or session was logged unless the tool returned a successful receipt.
 - If a write is uncertain, retry the same event ID and payload. Treat `status: "replayed"` as success; do not create a new event ID for the retry.
 - Use canonical exercise names. Put grip, tempo, assistance, range of motion, pain, substitutions, and other qualitative execution context in `notes` or `painNotes`.
+- Unknown or ambiguous exercise names are rejected. Use `list_approved_exercises`; never bypass the error by creating a new exercise without approval.
 - Use `update_exercise_set` or `patch_session_exercise_sets` for corrections instead of adding a duplicate set.
 - Finish the session with `finish_workout_session`.
 - Do not recommend a slot marked completed unless the user explicitly wants an additional repeat. A repeated exercise is acceptable when the plan calls for it, but flag near-duplicate recent work and explain the adjustment.

@@ -89,6 +89,12 @@ export const saveTrainingPlanSchema = z.object({
   slots: z.array(trainingSlotSchema).min(1).max(7)
 });
 
+export const createApprovedExerciseSchema = z.object({
+  name: z.string().trim().min(1),
+  aliases: z.array(z.string().trim().min(1)).max(20).optional(),
+  userApproved: z.literal(true)
+});
+
 export const createSetSchema = z.object({
   sessionId: z.string().trim().min(1),
   exerciseName: z.string().trim().min(1),
@@ -99,7 +105,7 @@ export const createSetSchema = z.object({
   rir: z.number().optional(),
   painFlag: z.boolean().optional(),
   painNotes: optionalTrimmedString,
-  /** Qualitative execution context (grip, tempo, ROM, pain, etc.). Keep Exercise.name canonical. */
+  /** Transient execution context (tempo, pain, assistance, etc.); mechanically distinct movements belong in exerciseName. */
   notes: optionalTrimmedString,
   completedAt: optionalIsoDate
 });

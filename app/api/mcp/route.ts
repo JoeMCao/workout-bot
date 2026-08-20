@@ -15,6 +15,10 @@ import {
 } from "@/lib/services/planning";
 import { getTrainingPlan, saveTrainingPlan } from "@/lib/services/training-plan";
 import {
+  createApprovedExercise,
+  listApprovedExercises
+} from "@/lib/services/exercise-catalog";
+import {
   createCompletedSet,
   createWorkoutSession,
   getDatabaseTime,
@@ -30,6 +34,7 @@ import { DEFAULT_USER_TIMEZONE } from "@/lib/time";
 import {
   activityTypeSchema,
   createActivitySessionSchema,
+  createApprovedExerciseSchema,
   createSessionSchema,
   createSetSchema,
   patchSessionExerciseSetsSchema,
@@ -173,6 +178,43 @@ const handler = createMcpHandler(
     );
 
     server.registerTool(
+      "list_approved_exercises",
+      {
+        title: "List Approved Exercises",
+        description:
+          "Read the canonical exercise catalog, aliases, usage counts, and last-performed dates. Use this before proposing a training plan.",
+        annotations: { readOnlyHint: true, openWorldHint: false }
+      },
+      () => callTool(async () => ({ exercises: await listApprovedExercises() }))
+    );
+
+    server.registerTool(
+      "create_approved_exercise",
+      {
+        title: "Create Approved Exercise",
+        description:
+          "Create one genuinely new canonical exercise only after the user explicitly approves it. Never use this to bypass an unknown or ambiguous exercise error.",
+        inputSchema: { ...createApprovedExerciseSchema.shape, clientEventId },
+        annotations: { idempotentHint: true, openWorldHint: false }
+      },
+      ({ clientEventId: eventId, ...body }) => callTool(async () => {
+        const parsed = createApprovedExerciseSchema.parse(body);
+        const result = await createApprovedExercise(parsed, {
+          clientEventId: eventId,
+          source: "mcp"
+        });
+        return {
+          exercise: {
+            id: result.value.id,
+            name: result.value.name,
+            aliases: result.value.aliases.map((alias) => alias.name)
+          },
+          receipt: result.receipt
+        };
+      })
+    );
+
+    server.registerTool(
       "get_current_week_plan",
       {
         title: "Get Current Week Plan",
@@ -266,7 +308,7 @@ const handler = createMcpHandler(
       {
         title: "Log Completed Set",
         description:
-          "Persist one completed exercise set with canonical exercise normalization. Supply a unique clientEventId and retain the receipt.",
+          "Persist one completed exercise set. exerciseName must describe the movement actually performed, even when it differs from the weekly plan; keep mechanically distinct variations such as chest-supported and one-arm rows separate. Supply a unique clientEventId and retain the receipt.",
         inputSchema: { ...createSetSchema.shape, clientEventId },
         annotations: { idempotentHint: true, openWorldHint: false }
       },

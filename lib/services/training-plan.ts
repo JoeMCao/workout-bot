@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getLocalDateKey, getStartOfLocalWeekUtc, shiftLocalDateKey, DEFAULT_USER_TIMEZONE } from "@/lib/time";
 import { ConflictError } from "@/lib/services/errors";
+import { resolveApprovedExercise } from "@/lib/services/exercise-catalog";
 import { runIdempotentWrite, type WriteReceipt, type WriteSource } from "@/lib/idempotency";
 import type { z } from "zod";
 import { saveTrainingPlanSchema } from "@/lib/validation";
@@ -81,6 +82,33 @@ function validatePlanDates(body: TrainingPlanBody) {
     }
     seen.add(slot.plannedDate);
   }
+}
+
+async function canonicalizePlanExerciseNames(
+  db: typeof prisma | Prisma.TransactionClient,
+  body: TrainingPlanBody
+): Promise<TrainingPlanBody> {
+  const requestedNames = [
+    ...new Set(
+      body.slots.flatMap((slot) => slot.exerciseNames ?? []).map((name) => name.trim())
+    )
+  ];
+  const resolved = new Map(
+    await Promise.all(
+      requestedNames.map(async (name) => [name, (await resolveApprovedExercise(db, name)).name] as const)
+    )
+  );
+
+  return {
+    ...body,
+    slots: body.slots.map((slot) => ({
+      ...slot,
+      exerciseNames:
+        slot.exerciseNames === undefined
+          ? undefined
+          : [...new Set(slot.exerciseNames.map((name) => resolved.get(name.trim())!))]
+    }))
+  };
 }
 
 function localWeekRange(weekStart: string) {
@@ -234,21 +262,22 @@ export async function saveTrainingPlan(
   body: TrainingPlanBody,
   options?: { clientEventId?: string; source?: WriteSource }
 ): Promise<TrainingPlanWriteResult> {
-  validatePlanDates(body);
+  const canonicalBody = await canonicalizePlanExerciseNames(prisma, body);
+  validatePlanDates(canonicalBody);
 
   if (!options?.clientEventId) {
-    await prisma.$transaction((tx) => savePlanRecord(tx, body));
-    return { value: await readPlan(body.weekStart), receipt: null };
+    await prisma.$transaction((tx) => savePlanRecord(tx, canonicalBody));
+    return { value: await readPlan(canonicalBody.weekStart), receipt: null };
   }
 
   const result = await runIdempotentWrite({
     clientEventId: options.clientEventId,
     operation: "save_training_plan",
     entityType: "TrainingWeek",
-    payload: body,
+    payload: canonicalBody,
     source: options.source ?? "mcp",
     write: async (tx) => {
-      const entityId = await savePlanRecord(tx, body);
+      const entityId = await savePlanRecord(tx, canonicalBody);
       return { entityId, value: { entityId } };
     },
     read: async (db, entityId) => {
@@ -260,5 +289,5 @@ export async function saveTrainingPlan(
     }
   });
 
-  return { value: await readPlan(body.weekStart), receipt: result.receipt };
+  return { value: await readPlan(canonicalBody.weekStart), receipt: result.receipt };
 }

@@ -804,10 +804,64 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
+      "/api/exercises": {
+        get: {
+          operationId: "listApprovedExercises",
+          summary: "List approved canonical exercises",
+          responses: {
+            "200": {
+              description: "Approved exercise catalog with aliases and usage metadata",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      exercises: {
+                        type: "array",
+                        items: { $ref: "#/components/schemas/ApprovedExercise" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        post: {
+          operationId: "createApprovedExercise",
+          summary: "Create a user-approved canonical exercise",
+          description:
+            "Use only after the user explicitly approves a genuinely new exercise. Unknown names in plans and set logging are otherwise rejected.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CreateApprovedExerciseRequest" }
+              }
+            }
+          },
+          responses: {
+            "201": {
+              description: "Approved exercise created",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      exercise: { $ref: "#/components/schemas/ApprovedExercise" },
+                      receipt: { type: "object", nullable: true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "/api/exercises/history": {
         get: {
           operationId: "getExerciseHistory",
-          summary: "Fetch recent sets for a matching exercise name",
+          summary: "Fetch recent sets for an approved exercise name or alias",
           parameters: [
             {
               name: "name",
@@ -1210,6 +1264,41 @@ export function buildOpenApiSpec(baseUrl: string) {
         }
       },
       schemas: {
+        ApprovedExercise: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+            aliases: {
+              type: "array",
+              items: { type: "string" }
+            },
+            setCount: { type: "integer" },
+            lastPerformedAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true
+            }
+          }
+        },
+        CreateApprovedExerciseRequest: {
+          type: "object",
+          required: ["name", "userApproved"],
+          properties: {
+            name: { type: "string" },
+            aliases: {
+              type: "array",
+              maxItems: 20,
+              items: { type: "string" }
+            },
+            userApproved: {
+              type: "boolean",
+              enum: [true],
+              description: "Must be true only after explicit user approval."
+            }
+          },
+          additionalProperties: false
+        },
         TrainingPlanSlot: {
           type: "object",
           properties: {
@@ -1266,7 +1355,9 @@ export function buildOpenApiSpec(baseUrl: string) {
                   exerciseNames: {
                     type: "array",
                     items: { type: "string" },
-                    maxItems: 20
+                    maxItems: 20,
+                    description:
+                      "Approved exercise names or aliases only. Unknown names are rejected until explicitly approved and created."
                   },
                   notes: { type: "string" }
                 },
@@ -1355,7 +1446,9 @@ export function buildOpenApiSpec(baseUrl: string) {
             },
             exerciseName: {
               type: "string",
-              example: "Lat Pulldown"
+              example: "Lat Pulldown",
+              description:
+                "Approved canonical exercise name or alias. Unknown names are rejected."
             },
             setNumber: {
               type: "integer"
@@ -1382,7 +1475,7 @@ export function buildOpenApiSpec(baseUrl: string) {
             notes: {
               type: "string",
               description:
-                "Qualitative execution context for this set (grip, tempo, ROM, pain, assistance, etc.). Keep exerciseName canonical—do not encode variants in Exercise.name."
+                "Transient execution context for this set (tempo, ROM, pain, assistance, etc.). Put mechanically distinct movements such as chest-supported and one-arm rows in exerciseName."
             },
             completedAt: {
               type: "string",
@@ -1393,7 +1486,7 @@ export function buildOpenApiSpec(baseUrl: string) {
         UpdateSetRequest: {
           type: "object",
           description:
-            "At least one field required. Nullable fields may be set to null to clear. exerciseName finds or creates the canonical Exercise and updates this set’s exerciseId only.",
+            "At least one field required. Nullable fields may be set to null to clear. exerciseName resolves an approved canonical Exercise and updates this set’s exerciseId only; unknown names are rejected.",
           properties: {
             exerciseName: {
               type: "string",

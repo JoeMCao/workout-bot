@@ -7,8 +7,6 @@ import {
   workoutSessionTimeSource
 } from "@/lib/time";
 import {
-  displayExerciseName,
-  normalizeExerciseName,
   patchSessionExerciseSetsSchema,
   sessionSignalsData,
   sessionSignalsSchema,
@@ -19,6 +17,7 @@ import {
 } from "@/lib/validation";
 import { runIdempotentWrite, type WriteReceipt, type WriteSource } from "@/lib/idempotency";
 import { NotFoundError } from "@/lib/services/errors";
+import { resolveApprovedExercise } from "@/lib/services/exercise-catalog";
 import type { z } from "zod";
 
 type DbClient = typeof prisma | Prisma.TransactionClient;
@@ -234,13 +233,9 @@ export async function getRecentWorkoutSessions(limit = 10) {
 }
 
 export async function getExerciseHistory(name: string, limit = 10) {
-  const normalizedName = normalizeExerciseName(name);
+  const exercise = await resolveApprovedExercise(prisma, name);
   return prisma.exerciseSet.findMany({
-    where: {
-      exercise: {
-        normalizedName: { contains: normalizedName }
-      }
-    },
+    where: { exerciseId: exercise.id },
     orderBy: { completedAt: "desc" },
     take: Math.min(Math.max(limit, 1), 50),
     include: {
@@ -275,14 +270,7 @@ async function createSetRecord(db: DbClient, body: SetBody) {
   });
   if (!session) throw new NotFoundError("Session not found");
 
-  const exercise = await db.exercise.upsert({
-    where: { normalizedName: normalizeExerciseName(body.exerciseName) },
-    create: {
-      name: displayExerciseName(body.exerciseName),
-      normalizedName: normalizeExerciseName(body.exerciseName)
-    },
-    update: {}
-  });
+  const exercise = await resolveApprovedExercise(db, body.exerciseName);
 
   return db.exerciseSet.create({
     data: setData(body, exercise.id),
@@ -324,14 +312,7 @@ export async function updateExerciseSet(id: string, body: SetUpdateBody) {
 
   let exerciseId = existing.exerciseId;
   if (body.exerciseName !== undefined) {
-    const exercise = await prisma.exercise.upsert({
-      where: { normalizedName: normalizeExerciseName(body.exerciseName) },
-      create: {
-        name: displayExerciseName(body.exerciseName),
-        normalizedName: normalizeExerciseName(body.exerciseName)
-      },
-      update: {}
-    });
+    const exercise = await resolveApprovedExercise(prisma, body.exerciseName);
     exerciseId = exercise.id;
   }
 
@@ -377,14 +358,7 @@ export async function patchSessionExerciseSets(
 
   let targetExerciseId = exerciseId;
   if (body.exerciseName !== undefined) {
-    const exercise = await prisma.exercise.upsert({
-      where: { normalizedName: normalizeExerciseName(body.exerciseName) },
-      create: {
-        name: displayExerciseName(body.exerciseName),
-        normalizedName: normalizeExerciseName(body.exerciseName)
-      },
-      update: {}
-    });
+    const exercise = await resolveApprovedExercise(prisma, body.exerciseName);
     targetExerciseId = exercise.id;
   }
 
