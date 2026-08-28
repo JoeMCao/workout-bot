@@ -23,3 +23,4 @@ Use the Workout Bot MCP as the source of truth for workout history and logging.
 - Finish the session with `finish_workout_session`, then call `get_workout_session` again to verify `endedAt` and the final set list.
 - Do not recommend a slot marked completed unless the user explicitly wants an additional repeat. A repeated exercise is acceptable when the plan calls for it, but flag near-duplicate recent work and explain the adjustment.
 - Treat WHOOP recovery as advisory. WHOOP data can inform coaching but never proves that a strength set happened.
+- Planning, reviewing, or starting a run/cardio activity is read/sync-only and must not create an `ActivitySession`. After completion, prefer WHOOP sync and review its canonical activity. Use `record_activity_session` only when the user explicitly asks to log, save, or record a completed manual activity.

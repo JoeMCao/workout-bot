@@ -1,3 +1,4 @@
+import { isIntentionalCardioActivity } from "@/lib/activity-classification";
 import { prisma } from "@/lib/prisma";
 import { getTrainingPlan } from "@/lib/services/training-plan";
 import {
@@ -9,17 +10,6 @@ import {
 } from "@/lib/time";
 import { weeklyTrainingTargetsSchema } from "@/lib/validation";
 import { queryWhoopHealthContextDays } from "@/lib/whoop/health-context-query";
-
-const CARDIO_TYPES = new Set([
-  "zone2",
-  "hiit",
-  "stairmaster",
-  "run",
-  "walk",
-  "hike",
-  "swim",
-  "bike"
-]);
 
 function sum(values: Array<number | null | undefined>) {
   return values.reduce<number>((total, value) => total + (value ?? 0), 0);
@@ -81,7 +71,10 @@ export async function getWeeklyTrainingReview({
     queryWhoopHealthContextDays({ anchorDate: weekEnd, days: 7 })
   ]);
 
-  const cardio = activities.filter((activity) => CARDIO_TYPES.has(activity.type));
+  const cardio = activities.filter((activity) =>
+    isIntentionalCardioActivity(activity.type)
+  );
+  const walks = activities.filter((activity) => activity.type === "walk");
   const heat = activities.filter((activity) => activity.type === "sauna");
   const surf = activities.filter((activity) => activity.type === "surf");
   const runs = activities.filter((activity) => activity.type === "run");
@@ -111,6 +104,8 @@ export async function getWeeklyTrainingReview({
       strengthSessions: strengthSessions.length,
       cardioSessions: cardio.length,
       cardioMinutes: roundMinutes(sum(cardio.map((activity) => activity.durationMinutes))),
+      walkSessions: walks.length,
+      walkMinutes: roundMinutes(sum(walks.map((activity) => activity.durationMinutes))),
       zone2Minutes: roundMinutes(sum(cardio.map((activity) => activity.zone2Minutes))),
       runSessions: runs.length,
       heatSessions: heat.length,
@@ -142,7 +137,8 @@ export async function getWeeklyTrainingReview({
     countingRules: {
       strengthSessions: "Completed WorkoutSessions with at least one logged set.",
       cardioSessions:
-        "zone2, hiit, stairmaster, run, walk, hike, swim, and bike ActivitySessions.",
+        "Intentional zone2, hiit, stairmaster, run, hike, swim, and bike ActivitySessions. Walks are reported separately.",
+      walks: "Walk ActivitySessions, reported separately from intentional cardio training.",
       zone2Minutes:
         "Observed zone 2 minutes from cardio ActivitySessions. Surf is reported separately and does not satisfy the prescribed Zone 2 target.",
       heat: "Sauna ActivitySessions.",

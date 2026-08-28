@@ -276,7 +276,7 @@ h3 {
   border: 1px solid #e2e8f0;
   border-radius: 18px;
   display: grid;
-  grid-template-columns: auto repeat(5, minmax(0, 1fr));
+  grid-template-columns: auto repeat(6, minmax(0, 1fr));
   margin-bottom: 12px;
   overflow: hidden;
 }

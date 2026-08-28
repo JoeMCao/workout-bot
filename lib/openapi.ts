@@ -939,7 +939,9 @@ export function buildOpenApiSpec(baseUrl: string) {
       "/api/activity-sessions": {
         post: {
           operationId: "createActivitySession",
-          summary: "Create a cardio, endurance, sport, recovery, or mobility activity",
+          summary: "Manually record a completed cardio, sport, recovery, or mobility activity",
+          description:
+            "Write-only operation. Use only when the user explicitly asks to log, save, or record a completed activity. Never call while planning, reviewing, or starting an activity. When WHOOP sync is available, prefer syncing and reading the canonical WHOOP activity instead.",
           requestBody: {
             required: true,
             content: {
@@ -1462,6 +1464,8 @@ export function buildOpenApiSpec(baseUrl: string) {
                 strengthSessions: { type: "integer" },
                 cardioSessions: { type: "integer" },
                 cardioMinutes: { type: "integer" },
+                walkSessions: { type: "integer" },
+                walkMinutes: { type: "integer" },
                 zone2Minutes: { type: "integer" },
                 runSessions: { type: "integer" },
                 heatSessions: { type: "integer" },

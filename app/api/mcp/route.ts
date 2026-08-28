@@ -183,7 +183,7 @@ const handler = createMcpHandler(
       {
         title: "Get Weekly Training Review",
         description:
-          "Summarize one week of actual strength, cardio, Zone 2, heat, surf, sleep, and recovery data. Defaults to the prior week and keeps surf separate from prescribed Zone 2.",
+          "Summarize one week of actual strength, intentional cardio, walks, Zone 2, heat, surf, sleep, and recovery data. Defaults to the prior week and keeps walks and surf separate from prescribed training targets.",
         inputSchema: {
           weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
         },
@@ -462,7 +462,7 @@ const handler = createMcpHandler(
       {
         title: "Record Activity Session",
         description:
-          "Persist a manually recorded activity. Supply a unique clientEventId and retain the receipt.",
+          "Persist a manually recorded completed activity only after the user explicitly asks to log, save, or record it. Never call while planning, reviewing, or starting an activity. Prefer WHOOP sync for completed WHOOP-tracked activity. Supply a unique clientEventId and retain the receipt.",
         inputSchema: { ...createActivitySessionSchema.shape, clientEventId },
         annotations: { idempotentHint: true, openWorldHint: false }
       },

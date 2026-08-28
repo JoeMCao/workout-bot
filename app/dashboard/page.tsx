@@ -172,6 +172,10 @@ export default async function DashboardPage({
           <span>cardio sessions</span>
         </div>
         <div className="weekly-score">
+          <strong>{overview.weeklyTargets.actual.walkSessions}</strong>
+          <span>walks</span>
+        </div>
+        <div className="weekly-score">
           <strong>{overview.weeklyTargets.actual.zone2Minutes}</strong>
           <span>Zone 2 minutes</span>
         </div>
