@@ -30,7 +30,7 @@ export function handleRouteError(error: unknown) {
   }
 
   if (error instanceof ServiceError) {
-    return errorJson(error.message, error.status);
+    return errorJson(error.message, error.status, error.code ? { code: error.code } : undefined);
   }
 
   console.error(error);

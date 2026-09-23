@@ -140,6 +140,10 @@ See `docs/WHOOP_DATA_MODEL_PLAN.md` for context.
 4. Configure Action authentication as bearer/API key auth using `WORKOUT_API_KEY`.
 5. In your GPT instructions, tell it to read `/api/training-plan` before recommending a workout, select the next uncompleted slot, pass its `planSlotId` when creating the session, check exercise history before prescribing loads, adjust exercises and loads for current recovery, update readiness signals when pain or fatigue changes, and end the session when done. If no plan exists, have it propose one and save it only after approval. For non-strength work, prefer **WHOOP OAuth + sync** (`/api/whoop/status`, `/api/whoop/sync`, recent activities); use **`/api/activity-sessions/from-whoop`** only as a legacy fallback (e.g. screenshot parse). See `GPT/gpt-instructions.txt` and `GPT/coach-mcp-instructions.txt`.
 
+## Session start recovery
+
+Use the exact `slot.id` returned by the current training plan as `planSlotId`. A missing ID returns 409 with `error.details.code: PLAN_SLOT_NOT_FOUND` and instructions to refresh the plan. An occupied slot returns `PLAN_SLOT_IN_USE`; resume its existing workout instead of replacing it. If no slot matches the intended workout, omit `planSlotId`. Session creation and slot status changes are atomic, including requests without an idempotency key.
+
 ## Guided sets and saving
 
 The coach proposes one exact set at a time. “Done” confirms that proposal; a completed deviation changes only the reported fields. Confirmed sets stay pending in the conversation until the exercise ends, the user says “save now,” or the workout ends. Superset transitions do not end an exercise. Pending sets are not durable until a batch succeeds.

@@ -17,7 +17,7 @@ import {
   createSetsBatchSchema
 } from "@/lib/validation";
 import { runIdempotentWrite, runIdempotentWriteInTransaction, type WriteReceipt, type WriteSource } from "@/lib/idempotency";
-import { NotFoundError } from "@/lib/services/errors";
+import { ConflictError, NotFoundError } from "@/lib/services/errors";
 import { resolveApprovedExercise } from "@/lib/services/exercise-catalog";
 import type { z } from "zod";
 
@@ -89,17 +89,49 @@ function sessionCreateData(body: SessionBody) {
     soreness: body.soreness,
     sleepQuality: body.sleepQuality,
     notes: body.notes,
-    planSlot: body.planSlotId
-      ? { connect: { id: body.planSlotId } }
-      : undefined,
+    planSlotId: body.planSlotId,
     ...sessionSignalsData(body)
   };
 }
 
-async function createWorkoutSessionRecord(db: DbClient, body: SessionBody) {
-  const session = await db.workoutSession.create({
-    data: sessionCreateData(body)
-  });
+function missingPlanSlotError() {
+  return new ConflictError(
+    "The supplied planSlotId no longer exists or is not a real training slot ID. No session was created. Fetch the current training plan (getCurrentTrainingPlan / get_current_week_plan), then retry with the exact returned slot.id for this workout. Never retry the same invalid ID or invent an ID. If no slot matches, omit planSlotId to start an unplanned workout.",
+    "PLAN_SLOT_NOT_FOUND"
+  );
+}
+
+function occupiedPlanSlotError(sessionId?: string) {
+  return new ConflictError(
+    `This training slot already has a workout${sessionId ? ` (${sessionId})` : ""}. No new session was created. Fetch the current training plan and resume its existing session if active. For an explicitly requested additional workout, omit planSlotId instead of replacing the slot's session.`,
+    "PLAN_SLOT_IN_USE"
+  );
+}
+
+async function createWorkoutSessionRecord(db: Prisma.TransactionClient, body: SessionBody) {
+  if (body.planSlotId) {
+    const slot = await db.trainingSlot.findUnique({
+      where: { id: body.planSlotId },
+      select: { id: true, workoutSession: { select: { id: true } } }
+    });
+    if (!slot) throw missingPlanSlotError();
+    if (slot.workoutSession) throw occupiedPlanSlotError(slot.workoutSession.id);
+  }
+
+  let session;
+  try {
+    // Set the foreign key directly: nested connect can detach an existing one-to-one session.
+    session = await db.workoutSession.create({ data: sessionCreateData(body) });
+  } catch (error) {
+    if (body.planSlotId && error instanceof Prisma.PrismaClientKnownRequestError) {
+      // A concurrent plan edit/start can invalidate the preflight lookup.
+      if (error.code === "P2003") throw missingPlanSlotError();
+      if (error.code === "P2002" && JSON.stringify(error.meta?.target ?? []).includes("planSlotId")) {
+        throw occupiedPlanSlotError();
+      }
+    }
+    throw error;
+  }
 
   if (session.planSlotId) {
     await db.trainingSlot.update({
@@ -116,7 +148,10 @@ export async function createWorkoutSession(
   options?: { clientEventId?: string; source?: WriteSource }
 ): Promise<WorkoutWriteResult<Awaited<ReturnType<typeof createWorkoutSessionRecord>>>> {
   if (!options?.clientEventId) {
-    return { value: await createWorkoutSessionRecord(prisma, body), receipt: null };
+    return {
+      value: await prisma.$transaction((tx) => createWorkoutSessionRecord(tx, body)),
+      receipt: null
+    };
   }
 
   const result = await runIdempotentWrite({

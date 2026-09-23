@@ -431,6 +431,7 @@ export function buildOpenApiSpec(baseUrl: string) {
         post: {
           operationId: "createWorkoutSession",
           summary: "Create a workout session",
+          description: "Use the exact slot.id from the current training plan. PLAN_SLOT_NOT_FOUND: refresh the plan, then retry with a returned ID or omit planSlotId if no slot matches. PLAN_SLOT_IN_USE: resume the existing workout; do not create a duplicate.",
           requestBody: {
             required: false,
             content: {
@@ -442,6 +443,7 @@ export function buildOpenApiSpec(baseUrl: string) {
             }
           },
           responses: {
+            "409": { description: "Invalid or occupied planSlotId. Read error.details.code and error.message, refresh the plan, and retry with its returned ID or resume the linked session." },
             "201": {
               description: "Created session",
               content: {

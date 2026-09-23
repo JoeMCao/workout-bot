@@ -34,3 +34,9 @@ Do not publish instructions that still make routing.md or a global retrieval gat
 - Live instructions verified at 7,849 characters including the trailing newline; published with the editor's `GPT actualizado` confirmation. Existing knowledge uploads remain, with explicit precedence for the new guided workflow.
 - No-write, multi-turn GPT Preview: 40 lb x 12 proposal -> “Done” -> pending 40 x 12 and next proposal; “Only 10 reps” -> pending 40 x 10; final “Done” -> one intended `logExerciseSets` payload with three rows (40 x 12, 40 x 10, 40 x 12). No API calls were made.
 - Separate early-finish simulation included only confirmed sets 1 and 2, excluding proposed set 3. These are simulated conversational checks, not a real workout write through ChatGPT. Real persistence was tested separately through REST and MCP on the isolated database.
+
+## Session-start regression on 2026-09-23
+
+Production logs showed two POST /api/sessions failures (15:11 and 15:12 Pacific): Prisma P2025 from a nonexistent TrainingSlot referenced by planSlotId. Database time, recent-session reads and current-plan reads remained healthy.
+
+Added explicit missing/occupied-slot recovery errors, atomic session/slot writes for REST calls without an event ID, and direct foreign-key assignment so a nested one-to-one connect cannot detach an existing workout. Isolated tests cover missing IDs with and without receipts, corrected retries, valid mapped creation, replay, preservation of occupied slots and concurrent starts. The expanded integration suite passes 12 tests; the existing suite passes 39 tests.

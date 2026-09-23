@@ -307,7 +307,7 @@ const handler = createMcpHandler(
       {
         title: "Start Workout Session",
         description:
-          "Create a workout session. Supply a new clientEventId for each logical session and retain the receipt.",
+          "Create a workout session with the exact slot.id from get_current_week_plan. If PLAN_SLOT_NOT_FOUND, refresh the plan and retry with a real ID, or omit planSlotId if no slot matches. If PLAN_SLOT_IN_USE, resume the existing session. Supply a new clientEventId for each logical session and retain the receipt.",
         inputSchema: { ...createSessionSchema.shape, clientEventId },
         annotations: { idempotentHint: true, openWorldHint: false }
       },

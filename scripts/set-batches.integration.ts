@@ -18,6 +18,7 @@ test("batch set persistence through the REST handler", async (t) => {
   const { createApprovedExercise } = await import("../lib/services/exercise-catalog");
   const { createWorkoutSession, createCompletedSet, updateExerciseSet } = await import("../lib/services/workout");
   const { POST } = await import("../app/api/sets/batch/route");
+  const { POST: startSession } = await import("../app/api/sessions/route");
   const { buildOpenApiSpec } = await import("../lib/openapi");
   t.after(() => prisma.$disconnect());
   const prefix = randomUUID();
@@ -50,6 +51,54 @@ test("batch set persistence through the REST handler", async (t) => {
     { ...set("second", 10), setNumber: 2, notes: "Reported 10 instead of 12" },
     { ...set("third", 10), setNumber: 3, weight: 35 }
   ] };
+
+  await t.test("stale plan IDs return recovery instructions, create nothing, and can be corrected", async () => {
+    const eventId = `${prefix}-stale-slot-start`;
+    const sessionCount = await prisma.workoutSession.count();
+    const start = (planSlotId: string, event?: string) => startSession(new Request("http://localhost/api/sessions", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer batch-integration-test-key",
+        ...(event ? { "idempotency-key": event } : {}) },
+      body: JSON.stringify({ sessionType: "Planned test", planSlotId })
+    }));
+    for (const event of [undefined, eventId]) {
+      const response = await start(`${prefix}-missing-slot`, event);
+      assert.equal(response.status, 409);
+      const body = await response.json();
+      assert.equal(body.error.details.code, "PLAN_SLOT_NOT_FOUND");
+      assert.match(body.error.message, /Fetch the current training plan/);
+    }
+    assert.equal(await prisma.workoutSession.count(), sessionCount);
+    assert.equal(await prisma.writeEvent.findUnique({ where: { clientEventId: eventId } }), null);
+
+    const week = await prisma.trainingWeek.create({ data: {
+      weekStart: `test-${prefix}`,
+      slots: { create: { plannedDate: "2026-09-23", focus: "Test session" } }
+    }, include: { slots: true } });
+    const slotId = week.slots[0].id;
+    const created = await start(slotId, eventId);
+    assert.equal(created.status, 201);
+    const { session: plannedSession } = await created.json();
+    assert.equal(plannedSession.planSlotId, slotId);
+    assert.equal((await prisma.trainingSlot.findUniqueOrThrow({ where: { id: slotId } })).status, "in_progress");
+    const replay = await start(slotId, eventId);
+    assert.equal((await replay.json()).session.id, plannedSession.id);
+
+    const duplicate = await start(slotId);
+    assert.equal(duplicate.status, 409);
+    assert.equal((await duplicate.json()).error.details.code, "PLAN_SLOT_IN_USE");
+    assert.equal((await prisma.workoutSession.findUniqueOrThrow({ where: { id: plannedSession.id } })).planSlotId, slotId);
+    assert.equal(await prisma.workoutSession.count(), sessionCount + 1);
+
+    const concurrentSlot = await prisma.trainingSlot.create({ data: {
+      weekId: week.id, plannedDate: "2026-09-24", focus: "Concurrent start test"
+    } });
+    const concurrent = await Promise.all([start(concurrentSlot.id), start(concurrentSlot.id)]);
+    assert.deepEqual(concurrent.map((r) => r.status).sort(), [201, 409]);
+    assert.equal(await prisma.workoutSession.count(), sessionCount + 2);
+    assert.equal(await prisma.workoutSession.count({ where: { planSlotId: concurrentSlot.id } }), 1);
+
+  });
 
   await t.test("auth and malformed requests write nothing", async () => {
     assert.equal((await post(batch, false)).status, 401);
