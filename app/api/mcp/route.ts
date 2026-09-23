@@ -21,6 +21,7 @@ import {
 } from "@/lib/services/exercise-catalog";
 import {
   createCompletedSet,
+  createCompletedSets,
   createWorkoutSession,
   getDatabaseTime,
   getExerciseHistory,
@@ -38,6 +39,7 @@ import {
   createApprovedExerciseSchema,
   createSessionSchema,
   createSetSchema,
+  createSetsBatchSchema,
   patchSessionExerciseSetsSchema,
   sessionSignalsSchema,
   updateActivitySessionSchema,
@@ -319,11 +321,22 @@ const handler = createMcpHandler(
     );
 
     server.registerTool(
+      "log_completed_sets",
+      {
+        title: "Save Completed Sets Together",
+        description: "Save confirmed sets in one atomic batch when an exercise ends, the workout ends, or the user asks to save now. Do not call between sets. Supply one stable clientEventId per set; retry unchanged IDs and data after uncertainty. Never save an unconfirmed prescription.",
+        inputSchema: createSetsBatchSchema,
+        annotations: { idempotentHint: true, openWorldHint: false }
+      },
+      (body) => callTool(() => createCompletedSets(body, "mcp"))
+    );
+
+    server.registerTool(
       "log_completed_set",
       {
         title: "Log Completed Set",
         description:
-          "Persist one completed exercise set. exerciseName must describe the movement actually performed, even when it differs from the weekly plan; keep mechanically distinct variations such as chest-supported and one-arm rows separate. Supply a unique clientEventId and retain the receipt.",
+          "Legacy single-set write; prefer log_completed_sets at exercise completion. Persist one completed exercise set. exerciseName must describe the movement actually performed, even when it differs from the weekly plan; keep mechanically distinct variations such as chest-supported and one-arm rows separate. Supply a unique clientEventId and retain the receipt.",
         inputSchema: { ...createSetSchema.shape, clientEventId },
         annotations: { idempotentHint: true, openWorldHint: false }
       },
@@ -594,7 +607,7 @@ const handler = createMcpHandler(
   {
     serverInfo: { name: "workout-bot", version: "0.1.0" },
     instructions:
-      "Use receipts to confirm writes. Log completed sets before replying. Use history when planning. WHOOP recovery is advisory and WHOOP never invents exercise sets.",
+      "Propose one exact set at a time. Done confirms only that set; completed deviations override stated fields. Keep confirmations pending without tools between sets. Save with log_completed_sets at exercise completion, explicit save now, or workout end; require successful receipts before claiming saved. Use history when planning. WHOOP recovery is advisory and never proves a strength set.",
     capabilities: { logging: {} }
   }
 );

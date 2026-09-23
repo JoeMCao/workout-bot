@@ -38,7 +38,8 @@ That makes the GPT useful across sessions. It can see recent performance, avoid 
 - `PATCH /api/sessions/:id`: update session details, notes, end time, and signals.
 - `POST /api/sessions/:id/signals`: update only readiness/recovery signals mid-workout.
 - `GET /api/sessions/:id/signals`: fetch only readiness/recovery signals.
-- `POST /api/sets`: log a completed set and auto-create the exercise if needed.
+- `POST /api/sets/batch`: save confirmed sets together at exercise completion with atomic writes and retry receipts.
+- `POST /api/sets`: legacy single-set logging; exercise names must already be approved.
 - `GET /api/sessions/recent?limit=10`: fetch recent sessions with exercises, sets, and signals.
 - `POST /api/activity-sessions`: create a standalone activity (cardio, sport, recovery, mobility).
 - `GET /api/activity-sessions/recent?limit=20&type=run`: list recent activities; `type` filter is optional.
@@ -138,6 +139,22 @@ See `docs/WHOOP_DATA_MODEL_PLAN.md` for context.
 3. Paste the returned JSON into the Custom GPT Action schema editor.
 4. Configure Action authentication as bearer/API key auth using `WORKOUT_API_KEY`.
 5. In your GPT instructions, tell it to read `/api/training-plan` before recommending a workout, select the next uncompleted slot, pass its `planSlotId` when creating the session, check exercise history before prescribing loads, adjust exercises and loads for current recovery, update readiness signals when pain or fatigue changes, and end the session when done. If no plan exists, have it propose one and save it only after approval. For non-strength work, prefer **WHOOP OAuth + sync** (`/api/whoop/status`, `/api/whoop/sync`, recent activities); use **`/api/activity-sessions/from-whoop`** only as a legacy fallback (e.g. screenshot parse). See `GPT/gpt-instructions.txt` and `GPT/coach-mcp-instructions.txt`.
+
+## Guided sets and saving
+
+The coach proposes one exact set at a time. “Done” confirms that proposal; a completed deviation changes only the reported fields. Confirmed sets stay pending in the conversation until the exercise ends, the user says “save now,” or the workout ends. Superset transitions do not end an exercise. Pending sets are not durable until a batch succeeds.
+
+`POST /api/sets/batch` (`logExerciseSets` in GPT Actions, `log_completed_sets` in MCP) accepts `{ sessionId, sets }`. Each of 1–100 sets contains `exerciseName`, a distinct stable `clientEventId`, and the existing optional set fields. All new sets and write receipts commit together. The response contains `sets` and `receipts` in request order (201 when any row is new, 200 when all are replayed). Retry unchanged IDs and payloads after uncertainty; an ID reused with changed data fails with 409. Corrections after saving use existing update operations. Supply actual completion timestamps when known; otherwise `completedAt` uses the database save time.
+
+`GPT/workout-buddy-live-instructions.txt` is the compact live Custom GPT configuration. The other GPT files document REST/MCP coaching workflows. Deploy the batch endpoint first, refresh the existing Action schema from `/api/openapi`, then publish the GPT instructions. The guided workflow takes precedence over older per-turn retrieval/logging rules in uploaded `routing.md`.
+
+Run batch integration tests against a disposable local PostgreSQL database named `workout_bot_batch_test`, after applying existing migrations:
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55439/workout_bot_batch_test npm run test:sets
+```
+
+The suite refuses a remote database or a differently named database. It creates synthetic fixtures and tests the real REST handler, transactions, retries, corrections, validation, and OpenAPI. See `docs/GUIDED_SETS_VERIFICATION.md` for conversational acceptance checks.
 
 ## Example Requests
 

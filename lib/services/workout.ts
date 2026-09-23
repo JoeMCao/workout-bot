@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { appendNotesDedupe } from "@/lib/set-notes";
 import {
@@ -13,9 +13,10 @@ import {
   updateSetSchema,
   updateSessionSchema,
   createSessionSchema,
-  createSetSchema
+  createSetSchema,
+  createSetsBatchSchema
 } from "@/lib/validation";
-import { runIdempotentWrite, type WriteReceipt, type WriteSource } from "@/lib/idempotency";
+import { runIdempotentWrite, runIdempotentWriteInTransaction, type WriteReceipt, type WriteSource } from "@/lib/idempotency";
 import { NotFoundError } from "@/lib/services/errors";
 import { resolveApprovedExercise } from "@/lib/services/exercise-catalog";
 import type { z } from "zod";
@@ -286,21 +287,55 @@ export async function createCompletedSet(
     return { value: await createSetRecord(prisma, body), receipt: null };
   }
 
-  return runIdempotentWrite({
-    clientEventId: options.clientEventId,
+  return runIdempotentWrite(completedSetWrite(body, options.clientEventId, options.source ?? "mcp"));
+}
+
+function completedSetWrite(body: SetBody, clientEventId: string, source: WriteSource) {
+  return {
+    clientEventId,
     operation: "log_completed_set",
     entityType: "ExerciseSet",
     payload: body,
-    source: options.source ?? "mcp",
-    write: async (tx) => {
+    source,
+    write: async (tx: Prisma.TransactionClient) => {
       const value = await createSetRecord(tx, body);
       return { entityId: value.id, value };
     },
-    read: (db, entityId) => db.exerciseSet.findUniqueOrThrow({
+    read: (db: Prisma.TransactionClient, entityId: string) => db.exerciseSet.findUniqueOrThrow({
       where: { id: entityId },
       include: { exercise: true }
     })
-  });
+  };
+}
+
+export async function createCompletedSets(
+  input: z.infer<typeof createSetsBatchSchema>,
+  source: WriteSource = "rest"
+) {
+  // Validate here too: MCP and REST share the same constraints, including unique event IDs.
+  const body = createSetsBatchSchema.parse(input);
+  const writeBatch = () => prisma.$transaction(async (tx) => {
+    const results = [];
+    for (const { clientEventId, ...set } of body.sets) {
+      results.push(await runIdempotentWriteInTransaction(tx,
+        completedSetWrite({ ...set, sessionId: body.sessionId }, clientEventId, source)));
+    }
+    return {
+      sets: results.map((result) => result.value),
+      receipts: results.map((result) => result.receipt)
+    };
+  }, { timeout: 20000 });
+
+  // Retry the whole rolled-back transaction if an overlapping request won the event-ID race.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await writeBatch();
+    } catch (error) {
+      if (attempt < 2 && error instanceof Prisma.PrismaClientKnownRequestError &&
+          (error.code === "P2002" || error.code === "P2034")) continue;
+      throw error;
+    }
+  }
 }
 
 export async function updateExerciseSet(id: string, body: SetUpdateBody) {

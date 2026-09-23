@@ -47,15 +47,7 @@ function assertCompatible(
   }
 }
 
-export async function runIdempotentWrite<T>({
-  clientEventId,
-  operation,
-  entityType,
-  payload,
-  source,
-  write,
-  read
-}: {
+type IdempotentWrite<T> = {
   clientEventId: string;
   operation: string;
   entityType: string;
@@ -63,110 +55,52 @@ export async function runIdempotentWrite<T>({
   source: WriteSource;
   write: (tx: TransactionClient) => Promise<{ entityId: string; value: T }>;
   read: (tx: TransactionClient, entityId: string) => Promise<T>;
-}): Promise<{ value: T; receipt: WriteReceipt }> {
-  const payloadHash = canonicalPayloadHash(payload);
-  const expected = {
-    clientEventId,
-    operation,
-    entityType,
-    payloadHash
-  };
+};
 
-  const existing = await prisma.writeEvent.findUnique({
-    where: { clientEventId }
-  });
+// The caller owns the transaction so multiple writes and their receipts can commit together.
+export async function runIdempotentWriteInTransaction<T>(
+  tx: TransactionClient,
+  { clientEventId, operation, entityType, payload, source, write, read }: IdempotentWrite<T>
+): Promise<{ value: T; receipt: WriteReceipt }> {
+  const payloadHash = canonicalPayloadHash(payload);
+  const expected = { clientEventId, operation, entityType, payloadHash };
+  const existing = await tx.writeEvent.findUnique({ where: { clientEventId } });
   if (existing) {
     assertCompatible(existing, expected);
-    const value = await read(prisma, existing.entityId);
     return {
-      value,
+      value: await read(tx, existing.entityId),
       receipt: {
-        status: "replayed",
-        clientEventId,
-        operation,
-        entityType,
+        status: "replayed", clientEventId, operation, entityType,
         entityId: existing.entityId,
         source: existing.source as WriteSource,
         recordedAt: existing.createdAt.toISOString()
       }
     };
   }
+  const { entityId, value } = await write(tx);
+  const event = await tx.writeEvent.create({
+    data: { ...expected, entityId, source }
+  });
+  return {
+    value,
+    receipt: {
+      status: "created", clientEventId, operation, entityType, entityId, source,
+      recordedAt: event.createdAt.toISOString()
+    }
+  };
+}
 
+export async function runIdempotentWrite<T>(input: IdempotentWrite<T>) {
   try {
-    const created = await prisma.$transaction(async (tx) => {
-      const raced = await tx.writeEvent.findUnique({
-        where: { clientEventId }
-      });
-      if (raced) {
-        assertCompatible(raced, expected);
-        const value = await read(tx, raced.entityId);
-        return {
-          value,
-          receipt: {
-            status: "replayed" as const,
-            clientEventId,
-            operation,
-            entityType,
-            entityId: raced.entityId,
-            source: raced.source as WriteSource,
-            recordedAt: raced.createdAt.toISOString()
-          }
-        };
-      }
-
-      const { entityId, value } = await write(tx);
-      const event = await tx.writeEvent.create({
-        data: {
-          clientEventId,
-          operation,
-          entityType,
-          entityId,
-          payloadHash,
-          source
-        }
-      });
-
-      return {
-        value,
-        receipt: {
-          status: "created" as const,
-          clientEventId,
-          operation,
-          entityType,
-          entityId,
-          source,
-          recordedAt: event.createdAt.toISOString()
-        }
-      };
-    });
-
-    return created;
+    return await prisma.$transaction((tx) => runIdempotentWriteInTransaction(tx, input));
   } catch (error) {
-    // A concurrent retry can lose the unique-key race after its transaction
-    // has already committed. Re-read outside the failed transaction and
-    // return the same receipt when the payload is compatible.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      const raced = await prisma.writeEvent.findUnique({
-        where: { clientEventId }
+    // A concurrent request may have committed this event while our transaction rolled back.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const event = await prisma.writeEvent.findUnique({
+        where: { clientEventId: input.clientEventId }
       });
-      if (raced) {
-        assertCompatible(raced, expected);
-        const value = await read(prisma, raced.entityId);
-        return {
-          value,
-          receipt: {
-            status: "replayed",
-            clientEventId,
-            operation,
-            entityType,
-            entityId: raced.entityId,
-            source: raced.source as WriteSource,
-            recordedAt: raced.createdAt.toISOString()
-          }
-        };
+      if (event) {
+        return prisma.$transaction((tx) => runIdempotentWriteInTransaction(tx, input));
       }
     }
     throw error;

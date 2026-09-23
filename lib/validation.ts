@@ -114,6 +114,22 @@ export const createSetSchema = z.object({
   completedAt: optionalIsoDate
 });
 
+export const createSetsBatchSchema = z.object({
+  sessionId: z.string().trim().min(1),
+  sets: z.array(createSetSchema.omit({ sessionId: true }).extend({
+    clientEventId: z.string().trim().min(1).max(200)
+  }).strict()).min(1).max(100)
+}).strict().superRefine((body, ctx) => {
+  const ids = new Set<string>();
+  body.sets.forEach((set, index) => {
+    if (ids.has(set.clientEventId)) {
+      ctx.addIssue({ code: "custom", path: ["sets", index, "clientEventId"],
+        message: "Each set must have a distinct clientEventId" });
+    }
+    ids.add(set.clientEventId);
+  });
+});
+
 export const updateSetSchema = z
   .object({
     exerciseName: z.string().trim().min(1).optional(),

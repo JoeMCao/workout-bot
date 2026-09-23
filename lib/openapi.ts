@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { createSetsBatchSchema } from "@/lib/validation";
+
 const severityEnum = ["none", "mild", "moderate", "severe"];
 const levelEnum = ["low", "medium", "high"];
 
@@ -630,10 +633,35 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
+      "/api/sets/batch": {
+        post: {
+          operationId: "logExerciseSets",
+          summary: "Save confirmed sets together at exercise completion",
+          description: "Save confirmed sets once at exercise/workout end or on save now, never between sets. Writes are atomic. Retain each clientEventId and retry identical IDs and data after uncertainty. Invalid sets or conflicting IDs roll back the batch.",
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateSetsBatchRequest" } } }
+          },
+          responses: {
+            "200": {
+              description: "All sets were already saved; replayed without duplicates",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SetsBatchResponse" } } }
+            },
+            "201": {
+              description: "Batch saved; returned sets and receipts follow request order",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SetsBatchResponse" } } }
+            },
+            "400": { description: "Invalid batch; nothing saved" },
+            "401": { description: "Unauthorized" },
+            "404": { description: "Session not found; nothing saved" },
+            "409": { description: "Unknown exercise or conflicting event ID; nothing saved" }
+          }
+        }
+      },
       "/api/sets": {
         post: {
           operationId: "logExerciseSet",
-          summary: "Log a completed exercise set",
+          summary: "Log one completed set (legacy; prefer logExerciseSets)",
           requestBody: {
             required: true,
             content: {
@@ -1537,6 +1565,28 @@ export function buildOpenApiSpec(baseUrl: string) {
               type: "string"
             },
             ...signalProperties
+          }
+        },
+        CreateSetsBatchRequest: z.toJSONSchema(createSetsBatchSchema, { target: "openapi-3.0" }),
+        SetsBatchResponse: {
+          type: "object",
+          required: ["sets", "receipts"],
+          properties: {
+            sets: { type: "array", items: { $ref: "#/components/schemas/ExerciseSet" } },
+            receipts: { type: "array", items: { $ref: "#/components/schemas/WriteReceipt" } }
+          }
+        },
+        WriteReceipt: {
+          type: "object",
+          required: ["status", "clientEventId", "operation", "entityType", "entityId", "source", "recordedAt"],
+          properties: {
+            status: { type: "string", enum: ["created", "replayed"] },
+            clientEventId: { type: "string" },
+            operation: { type: "string" },
+            entityType: { type: "string" },
+            entityId: { type: "string" },
+            source: { type: "string", enum: ["rest", "mcp"] },
+            recordedAt: { type: "string", format: "date-time" }
           }
         },
         CreateSetRequest: {

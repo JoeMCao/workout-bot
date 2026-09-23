@@ -57,3 +57,7 @@ With `WORKOUT_API_KEY` and `DATABASE_URL` set, start the app and connect an MCP 
 2. An authenticated client can initialize and list tools.
 3. A session and set write return receipts.
 4. Retrying the same event returns `replayed` and does not add a second row.
+
+## Guided strength sets
+
+Use `log_completed_sets` with `{ sessionId, sets: [{ clientEventId, exerciseName, ...setFields }] }` when an exercise finishes, the user requests “save now,” or the workout ends. Each set needs its own stable event ID. The batch commits atomically and returns ordered `sets` and `receipts`; replayed events create no duplicates. Do not call the legacy `log_completed_set` after each conversational confirmation. The revised coach instructions distinguish one outstanding proposal, pending confirmations, and persisted sets.
