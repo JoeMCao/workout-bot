@@ -21,4 +21,14 @@ Use synthetic, **no-write** conversations in GPT Preview; do not persist fiction
 
 ## Release
 
-Release status is recorded after deployment and live GPT verification below.
+- 2026-09-25: migration `20260925213000_add_sensation_check_ins` applied successfully to the existing production Railway database. Verified that the configured database matched the live API before migration.
+- API implementation commit: `f84146b`. Deployed from a clean archive of that commit, excluding the pre-existing untracked `artifacts/` directory.
+- Production deployment `dpl_C7aTNSnPxrPLiN3jugkjcd2AYxGg` reached READY and was aliased to `https://workout-bot-virid.vercel.app`.
+- Production smoke checks passed: public Action schema, authentication rejection, invalid-write rejection, authenticated history retrieval, and MCP tool discovery. History initially returned zero observations and zero Iron Neck sessions for 2026-08-29 through 2026-09-25; no fictional production records were created.
+- Vercel error-log query for the release window returned no logs.
+- Inspected the live `workout-buddy` configuration before editing. Refreshed its existing Action schema successfully; all four journal operations appeared in the editor.
+- Replaced instructions with the repository's 7,986-character version and verified exact text equality in the editor. Existing knowledge uploads and account settings were retained.
+- No-write GPT Preview passed: verbatim finger report, small session/eight rounds, full version without invented details, no writes for hypothetical reports or explicit opt-out, and separate writes with partial-failure handling.
+- Additional no-write Preview passed: suppress today's already-completed check-in; allow skipping; preserve guided-set batching; distinguish corrections from new observations.
+- A real read-only `getSensationHistory` call from GPT Preview succeeded and returned the same default date range and empty lists as the production smoke check.
+- Published the GPT update and observed the editor's **GPT actualizado** confirmation. Conversational write behavior was simulated; real persistence and fresh stateless retrieval of exact observations were tested through REST and MCP on the disposable database.
