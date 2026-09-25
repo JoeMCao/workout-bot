@@ -17,7 +17,8 @@
     "backfill:strength-activities": "tsx scripts/backfill-strength-activity-sessions.ts",
     "wipe:activities": "tsx scripts/wipe-activity-sessions.ts --yes",
     "wipe:whoop-mappings": "tsx scripts/wipe-whoop-workout-mappings.ts --yes",
-    "test:sets": "node --import tsx --test scripts/set-batches.integration.ts"
+    "test:sets": "node --import tsx --test scripts/set-batches.integration.ts",
+    "test:sensations": "node --import tsx --test scripts/sensation-journal.integration.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",

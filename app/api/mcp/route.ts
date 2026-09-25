@@ -33,6 +33,8 @@ import {
   updateWorkoutSignals
 } from "@/lib/services/workout";
 import { DEFAULT_USER_TIMEZONE } from "@/lib/time";
+import { recordSensationCheckInSchema, updateSensationCheckInSchema, sensationHistorySchema } from "@/lib/sensation-validation";
+import { createSensationCheckIn, updateSensationCheckIn, deleteSensationCheckIn, getSensationHistory } from "@/lib/services/sensation";
 import {
   activityTypeSchema,
   createActivitySessionSchema,
@@ -86,6 +88,10 @@ function deletedReceipt(operation: string, entityType: string, entityId: string)
 }
 
 function errorResult(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return { isError: true, content: [{ type: "text" as const,
+      text: jsonText({ error: "Invalid tool input", code: "VALIDATION_ERROR", details: error.flatten() }) }] };
+  }
   if (error instanceof WriteConflictError) {
     return {
       isError: true,
@@ -150,6 +156,40 @@ async function callTool<T>(callback: () => Promise<T>) {
 
 const handler = createMcpHandler(
   (server) => {
+    server.registerTool("record_sensation_check_in", {
+      title: "Record Sensation Check-in",
+      description: "Save a clear personal report of finger sensations and any neck/forearm context, in the user's own words. No required score or category. Never save hypothetical reports. Reuse clientEventId and payload on retries.",
+      inputSchema: recordSensationCheckInSchema.shape,
+      annotations: { idempotentHint: true, openWorldHint: false }
+    }, ({ clientEventId, ...body }) => callTool(async () => {
+      const result = await createSensationCheckIn(body, { clientEventId, source: "mcp" });
+      return { checkIn: result.value, receipt: result.receipt };
+    }));
+
+    server.registerTool("update_sensation_check_in", {
+      title: "Correct Sensation Check-in",
+      description: "Correct one saved observation, preserving unspecified fields and the original observation time.",
+      inputSchema: { checkInId: id, ...updateSensationCheckInSchema.shape },
+      annotations: { idempotentHint: true, openWorldHint: false }
+    }, ({ checkInId, ...body }) => callTool(async () => ({
+      checkIn: await updateSensationCheckIn(checkInId, body),
+      receipt: updatedReceipt("update_sensation_check_in", "SensationCheckIn", checkInId)
+    })));
+
+    server.registerTool("delete_sensation_check_in", {
+      title: "Delete Sensation Check-in",
+      description: "Delete one observation only at the user's explicit request. Requires confirm=true.",
+      inputSchema: { checkInId: id, confirm: z.literal(true) },
+      annotations: { destructiveHint: true, idempotentHint: true, openWorldHint: false }
+    }, ({ checkInId }) => callTool(() => deleteSensationCheckIn(checkInId)));
+
+    server.registerTool("get_sensation_history", {
+      title: "Get Finger Sensations and Iron Neck History",
+      description: "Retrieve observations and completed Iron Neck sessions, newest first. Defaults to 28 Los Angeles calendar days including today. Explicit startDate/endDate are inclusive. Missing entries are unknown; respect truncation flags. No causal inference.",
+      inputSchema: sensationHistorySchema.shape,
+      annotations: { readOnlyHint: true, openWorldHint: false }
+    }, (input) => callTool(() => getSensationHistory(input)));
+
     server.registerTool(
       "get_current_time",
       {
@@ -475,7 +515,7 @@ const handler = createMcpHandler(
       {
         title: "Record Activity Session",
         description:
-          "Persist a manually recorded completed activity only after the user explicitly asks to log, save, or record it. Never call while planning, reviewing, or starting an activity. Prefer WHOOP sync for completed WHOOP-tracked activity. Supply a unique clientEventId and retain the receipt.",
+          "Save completed Iron Neck reports automatically as type=mobility, modality=iron_neck, with the user's routine description in notes and optional minutes. Other manual activities require a log/save request; prefer WHOOP sync. Never save plans as completed. Reuse clientEventId and payload on retries.",
         inputSchema: { ...createActivitySessionSchema.shape, clientEventId },
         annotations: { idempotentHint: true, openWorldHint: false }
       },
@@ -607,7 +647,7 @@ const handler = createMcpHandler(
   {
     serverInfo: { name: "workout-bot", version: "0.1.0" },
     instructions:
-      "Propose one exact set at a time. Done confirms only that set; completed deviations override stated fields. Keep confirmations pending without tools between sets. Save with log_completed_sets at exercise completion, explicit save now, or workout end; require successful receipts before claiming saved. Use history when planning. WHOOP recovery is advisory and never proves a strength set.",
+      "Propose one exact set at a time. Done confirms only that set; completed deviations override stated fields. Keep set confirmations pending without routine tools between sets; clear finger sensation reports are saved immediately with record_sensation_check_in. Completed Iron Neck reports use record_activity_session with type=mobility, modality=iron_neck and notes in the user's words. Read get_sensation_history before workouts; offer an optional finger check-in unless today's update exists. Save with log_completed_sets at exercise completion, explicit save now, or workout end; require successful receipts before claiming saved. Use history when planning. WHOOP recovery is advisory and never proves a strength set.",
     capabilities: { logging: {} }
   }
 );

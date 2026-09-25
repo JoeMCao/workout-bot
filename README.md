@@ -412,3 +412,24 @@ curl "http://localhost:3000/api/activity-sessions/recent?limit=20&type=run" \
 Exercise names are lightly normalized for lookup: whitespace is trimmed, repeated spaces are collapsed, and matching is lowercase. The original display name is preserved, so `Lat Pulldown` and ` lat   pulldown ` resolve to the same exercise without overwriting historical sets.
 
 Historical sets are append-only through the public API. Logging a new set never overwrites old set data.
+
+## Finger sensation journal and Iron Neck
+
+Clear personal observations are saved in the user's own words, independently of workouts. No score or symptom category is required. Neck and forearm context stays in the description when mentioned. Before workouts the coach offers an optional finger check-in unless a current update already exists. Completed Iron Neck reports use the existing activity log with `type: mobility`, `modality: iron_neck`, `source: manual`, and routine notes such as “small session, eight rounds”; duration is optional.
+
+- `POST /api/sensation-check-ins` (`recordSensationCheckIn` / MCP `record_sensation_check_in`): `{ description, clientEventId, observedAt?, timezone? }`. Current observations default to server time and America/Los_Angeles. Backdated timestamps require an offset. Descriptions preserve whitespace and wording (up to 10,000 characters).
+- `PATCH /api/sensation-check-ins/:id` (`updateSensationCheckIn` / `update_sensation_check_in`): replace only provided description/time/timezone fields. Other fields, including observation time, are preserved.
+- `DELETE /api/sensation-check-ins/:id` (`deleteSensationCheckIn` / `delete_sensation_check_in`): explicit user-requested deletion. MCP also requires `confirm: true`. Repeated deletion is safe, and old create retries cannot resurrect deleted entries.
+- `GET /api/sensation-history` (`getSensationHistory` / `get_sensation_history`): separate newest-first `checkIns` and `ironNeckSessions` lists covering the last 28 LA calendar days including today. Supply both inclusive `startDate` and `endDate` (`YYYY-MM-DD`) for a different range. `limit` defaults to 200 per list (maximum 500); `truncated` flags incomplete lists. Linked and standalone Iron Neck activities both appear; other mobility does not.
+
+All routes require the existing API key. Creates use stable `clientEventId` values and existing transactional write receipts: unchanged retries return 200, new entries return 201, conflicting payloads return 409. `POST /api/activity-sessions` now accepts an optional body `clientEventId` for GPT Actions in addition to its existing `idempotency-key` header; if both are provided they must match. Keep the same ID and payload on uncertain retries. A combined routine-and-sensation report uses two writes; disclose partial success and retry only the uncertain/failed write.
+
+Missing entries mean unknown, not symptom-free days. The coach presents reported changes alongside sessions without inventing a causal relationship. Historical workout neck-tightness fields are not converted into journal entries. The feature adds no dashboard, scheduled reminders, or progression rules.
+
+Run the integration suite only against a disposable local database named `workout_bot_sensation_test`, after applying migrations:
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55441/workout_bot_sensation_test npm run test:sensations
+```
+
+Deploy the additive migration and API before refreshing GPT Actions and the live instructions. See `docs/SENSATION_JOURNAL_VERIFICATION.md` for conversational checks and release evidence.

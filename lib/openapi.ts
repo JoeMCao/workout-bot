@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sensationPaths, sensationSchemas } from "@/lib/sensation-openapi";
 import { createSetsBatchSchema } from "@/lib/validation";
 
 const severityEnum = ["none", "mild", "moderate", "severe"];
@@ -346,6 +347,7 @@ export function buildOpenApiSpec(baseUrl: string) {
     ],
     security: [{ bearerAuth: [] }],
     paths: {
+      ...sensationPaths,
       "/api/training-plan": {
         get: {
           operationId: "getCurrentTrainingPlan",
@@ -971,7 +973,7 @@ export function buildOpenApiSpec(baseUrl: string) {
           operationId: "createActivitySession",
           summary: "Manually record a completed cardio, sport, recovery, or mobility activity",
           description:
-            "Write-only operation. Use only when the user explicitly asks to log, save, or record a completed activity. Never call while planning, reviewing, or starting an activity. When WHOOP sync is available, prefer syncing and reading the canonical WHOOP activity instead.",
+            "Save completed Iron Neck reports as type=mobility, modality=iron_neck, notes=user words; minutes optional. Supply a stable clientEventId. Other manual activities require a log/save request; prefer WHOOP sync. Never log plans as completed.",
           requestBody: {
             required: true,
             content: {
@@ -983,6 +985,7 @@ export function buildOpenApiSpec(baseUrl: string) {
             }
           },
           responses: {
+            "200": { description: "Replayed activity and write receipt" },
             "201": {
               description: "Created activity session",
               content: {
@@ -990,6 +993,7 @@ export function buildOpenApiSpec(baseUrl: string) {
                   schema: {
                     type: "object",
                     properties: {
+                      receipt: { type: "object", nullable: true, additionalProperties: true },
                       activity: {
                         $ref: "#/components/schemas/ActivitySession"
                       }
@@ -1324,6 +1328,7 @@ export function buildOpenApiSpec(baseUrl: string) {
         }
       },
       schemas: {
+        ...sensationSchemas,
         ApprovedExercise: {
           type: "object",
           properties: {
@@ -1894,7 +1899,7 @@ export function buildOpenApiSpec(baseUrl: string) {
         CreateActivitySessionRequest: {
           type: "object",
           required: ["type"],
-          properties: createActivityRequestProperties,
+          properties: { ...createActivityRequestProperties, clientEventId: { type: "string", minLength: 1, maxLength: 200, description: "Stable ID for this completed activity; reuse unchanged on retries." } },
           additionalProperties: false
         },
         WhoopIngestionRequest: {

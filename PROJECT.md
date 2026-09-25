@@ -16,7 +16,7 @@ Health
 
 # In Scope
 
-Workout and activity logging, exercise and set history, weekly training planning and review, readiness and recovery context, WHOOP synchronization, the training dashboard, and the REST, OpenAPI, MCP, and Custom GPT interfaces that support those workflows.
+Workout and activity logging, exercise and set history, weekly training planning and review, readiness and recovery context, finger sensation journaling and Iron Neck session history, WHOOP synchronization, the training dashboard, and the REST, OpenAPI, MCP, and Custom GPT interfaces that support those workflows.
 
 # Out of Scope
 
