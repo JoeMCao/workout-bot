@@ -275,3 +275,15 @@ model WriteEvent {
   @@index([entityType, entityId])
   @@index([source, createdAt])
 }
+
+/// Dated weight samples imported from the user's Apple Health store.
+model BodyWeight {
+  id         String   @id @default(cuid())
+  source     String   @default("apple_health")
+  measuredAt DateTime
+  weightKg   Float
+  receivedAt DateTime @default(now())
+
+  @@unique([source, measuredAt])
+  @@index([measuredAt])
+}

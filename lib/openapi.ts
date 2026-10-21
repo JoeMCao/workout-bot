@@ -2,6 +2,16 @@ import { z } from "zod";
 import { sensationPaths, sensationSchemas } from "@/lib/sensation-openapi";
 import { createSetsBatchSchema } from "@/lib/validation";
 
+const bodyWeightSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string" }, source: { type: "string", enum: ["apple_health"] },
+    weightKg: { type: "number" }, weightLb: { type: "number" },
+    measuredAt: { type: "string", format: "date-time" },
+    receivedAt: { type: "string", format: "date-time", description: "First import time, not weigh-in time" }
+  }
+};
+
 const severityEnum = ["none", "mild", "moderate", "severe"];
 const levelEnum = ["low", "medium", "high"];
 
@@ -1178,39 +1188,23 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
-      "/api/whoop/body-measurement": {
+      "/api/body-weight": {
         get: {
-          operationId: "getWhoopBodyMeasurement",
-          summary: "Read current saved WHOOP weight, height, and max heart rate",
-          description: "Requires read:body_measurement; reconnect via /api/auth/whoop/start if missing. No weight history or measurement date is provided. fetchedAt is retrieval time only.",
+          operationId: "getBodyWeight",
+          summary: "Read latest dated Apple Health weight and recent measurements",
+          description: "Use for body weight. Records arrive via an iPhone automation. Report measuredAt, never fetchedAt or receivedAt as weigh-in time. latest is null until a reading arrives. An old reading does not mean the user weighed in today. WHOOP's undated saved weight remains available through the legacy REST endpoint.",
+          parameters: [{ name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 30, default: 7 } }],
           responses: {
-            "200": {
-              description: "Current WHOOP body measurements",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      bodyMeasurement: {
-                        type: "object",
-                        properties: {
-                          source: { type: "string", enum: ["whoop"] },
-                          weightKg: { type: "number" },
-                          weightLb: { type: "number" },
-                          heightMeters: { type: "number" },
-                          maxHeartRate: { type: "number" },
-                          fetchedAt: { type: "string", format: "date-time" },
-                          measuredAt: { type: "string", nullable: true, description: "Always null; WHOOP does not provide a measurement date." }
-                        }
-                      }
-                    }
-                  }
-                }
+            "200": { description: "Latest and recent dated weights", content: { "application/json": { schema: {
+              type: "object",
+              properties: {
+                latest: { ...bodyWeightSchema, nullable: true },
+                measurements: { type: "array", items: bodyWeightSchema },
+                fetchedAt: { type: "string", format: "date-time" },
+                note: { type: "string" }
               }
-            },
-            "401": { description: "Missing or invalid Workout Bot API key" },
-            "409": { description: "Reconnect WHOOP to grant body measurement access" },
-            "502": { description: "WHOOP unavailable or invalid response" }
+            } } } },
+            "401": { description: "Missing or invalid Workout Bot API key" }
           }
         }
       },

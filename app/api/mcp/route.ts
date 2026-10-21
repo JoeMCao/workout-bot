@@ -54,6 +54,7 @@ import {
   syncWhoopWorkouts
 } from "@/lib/whoop/sync";
 import { syncWhoopRecovery } from "@/lib/whoop/health-context-sync";
+import { getBodyWeight } from "@/lib/services/body-weight";
 import { getWhoopBodyMeasurement } from "@/lib/whoop/body-measurement";
 import { WhoopSyncError } from "@/lib/whoop/sync-error";
 import { createWhoopSyncLogger } from "@/lib/whoop/sync-log";
@@ -587,6 +588,17 @@ const handler = createMcpHandler(
         annotations: { readOnlyHint: true, openWorldHint: false }
       },
       () => callTool(async () => ({ whoop: await getWhoopStatus() }))
+    );
+
+    server.registerTool(
+      "get_body_weight",
+      {
+        title: "Get Dated Body Weight",
+        description: "Read the latest and recent Apple Health weight readings synced from the user's iPhone. Use measuredAt for weigh-in time; receivedAt and fetchedAt are not measurement dates. latest is null if nothing has synced. Report stale readings with their actual date.",
+        inputSchema: { limit: z.number().int().min(1).max(30).optional() },
+        annotations: { readOnlyHint: true, openWorldHint: false }
+      },
+      (args) => callTool(async () => getBodyWeight(args.limit))
     );
 
     server.registerTool(
