@@ -16,6 +16,7 @@ export const WHOOP_SCOPES = [
   "read:recovery",
   "read:sleep",
   "read:cycles",
+  "read:body_measurement",
   "offline"
 ];
 

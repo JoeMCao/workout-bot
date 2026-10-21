@@ -373,6 +373,13 @@ curl -X POST http://localhost:3000/api/activity-sessions \
 
 ### WHOOP OAuth and sync
 
+`GET /api/whoop/body-measurement` (API key required), or MCP
+`get_whoop_body_measurement`, fetches the weight currently saved in WHOOP in kg
+and lb, along with height and max heart rate. Existing connections must reconnect
+via `/api/auth/whoop/start` to grant `read:body_measurement`. No weight history is
+stored. `fetchedAt` is retrieval time; `measuredAt` is null because WHOOP does not
+provide a measurement date.
+
 Start OAuth in the browser:
 
 ```bash

@@ -83,7 +83,10 @@ export async function exchangeWhoopAuthorizationCode({
   });
 }
 
-export async function upsertWhoopConnection(tokens: WhoopTokenResponse) {
+export async function upsertWhoopConnection(
+  tokens: WhoopTokenResponse,
+  fallbackScope = WHOOP_SCOPES.join(" ")
+) {
   return prisma.whoopConnection.upsert({
     where: { provider: WHOOP_PROVIDER },
     create: {
@@ -91,7 +94,7 @@ export async function upsertWhoopConnection(tokens: WhoopTokenResponse) {
       accessTokenEncrypted: encryptWhoopToken(tokens.access_token),
       refreshTokenEncrypted: encryptWhoopToken(tokens.refresh_token),
       tokenType: tokens.token_type,
-      scope: tokens.scope ?? WHOOP_SCOPES.join(" "),
+      scope: tokens.scope ?? fallbackScope,
       expiresAt: expiresAtFromNow(tokens.expires_in),
       lastSyncError: null
     },
@@ -99,7 +102,7 @@ export async function upsertWhoopConnection(tokens: WhoopTokenResponse) {
       accessTokenEncrypted: encryptWhoopToken(tokens.access_token),
       refreshTokenEncrypted: encryptWhoopToken(tokens.refresh_token),
       tokenType: tokens.token_type,
-      scope: tokens.scope ?? WHOOP_SCOPES.join(" "),
+      scope: tokens.scope ?? fallbackScope,
       expiresAt: expiresAtFromNow(tokens.expires_in),
       lastSyncError: null
     }
@@ -147,7 +150,9 @@ export async function refreshWhoopConnection(
     log
   );
 
-  return upsertWhoopConnection(tokens);
+  // Refresh cannot grant newly requested permissions. Preserve the original grant
+  // when WHOOP omits scope from its response (OAuth 2.0 section 5.1).
+  return upsertWhoopConnection(tokens, connection.scope ?? "");
 }
 
 export async function getValidWhoopAccessToken(

@@ -54,6 +54,7 @@ import {
   syncWhoopWorkouts
 } from "@/lib/whoop/sync";
 import { syncWhoopRecovery } from "@/lib/whoop/health-context-sync";
+import { getWhoopBodyMeasurement } from "@/lib/whoop/body-measurement";
 import { WhoopSyncError } from "@/lib/whoop/sync-error";
 import { createWhoopSyncLogger } from "@/lib/whoop/sync-log";
 
@@ -586,6 +587,16 @@ const handler = createMcpHandler(
         annotations: { readOnlyHint: true, openWorldHint: false }
       },
       () => callTool(async () => ({ whoop: await getWhoopStatus() }))
+    );
+
+    server.registerTool(
+      "get_whoop_body_measurement",
+      {
+        title: "Get WHOOP Body Measurements",
+        description: "Fetch the current weight (kg and lb), height, and max heart rate saved in WHOOP. Requires body measurement permission; reconnect if missing. fetchedAt is retrieval time, not measurement time. WHOOP supplies no measurement date or weight history.",
+        annotations: { readOnlyHint: true, openWorldHint: true }
+      },
+      () => callTool(async () => ({ bodyMeasurement: await getWhoopBodyMeasurement() }))
     );
 
     server.registerTool(

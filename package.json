@@ -18,6 +18,7 @@
     "wipe:activities": "tsx scripts/wipe-activity-sessions.ts --yes",
     "wipe:whoop-mappings": "tsx scripts/wipe-whoop-workout-mappings.ts --yes",
     "test:sets": "node --import tsx --test scripts/set-batches.integration.ts",
+    "test:whoop": "node --import tsx --test scripts/whoop-body-measurement.integration.ts",
     "test:sensations": "node --import tsx --test scripts/sensation-journal.integration.ts"
   },
   "dependencies": {

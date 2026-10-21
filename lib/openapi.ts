@@ -1209,6 +1209,42 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
+      "/api/whoop/body-measurement": {
+        get: {
+          operationId: "getWhoopBodyMeasurement",
+          summary: "Read current saved WHOOP weight, height, and max heart rate",
+          description: "Requires read:body_measurement; reconnect via /api/auth/whoop/start if missing. No weight history or measurement date is provided. fetchedAt is retrieval time only.",
+          responses: {
+            "200": {
+              description: "Current WHOOP body measurements",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      bodyMeasurement: {
+                        type: "object",
+                        properties: {
+                          source: { type: "string", enum: ["whoop"] },
+                          weightKg: { type: "number" },
+                          weightLb: { type: "number" },
+                          heightMeters: { type: "number" },
+                          maxHeartRate: { type: "number" },
+                          fetchedAt: { type: "string", format: "date-time" },
+                          measuredAt: { type: "string", nullable: true, description: "Always null; WHOOP does not provide a measurement date." }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "401": { description: "Missing or invalid Workout Bot API key" },
+            "409": { description: "Reconnect WHOOP to grant body measurement access" },
+            "502": { description: "WHOOP unavailable or invalid response" }
+          }
+        }
+      },
       "/api/whoop/sync": {
         post: {
           operationId: "syncWhoopWorkouts",
