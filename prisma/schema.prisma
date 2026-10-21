@@ -287,3 +287,28 @@ model BodyWeight {
   @@unique([source, measuredAt])
   @@index([measuredAt])
 }
+
+/// BP components are matched only by exact Apple Health time and OMRON source.
+model BloodPressure {
+  id          String   @id @default(cuid())
+  sourceName  String
+  measuredAt  DateTime
+  systolic    Float?
+  diastolic   Float?
+  receivedAt  DateTime @default(now())
+
+  @@unique([sourceName, measuredAt])
+  @@index([measuredAt])
+}
+
+/// OMRON spot pulse, distinct from WHOOP or Apple Watch heart rate.
+model OmronPulse {
+  id          String   @id @default(cuid())
+  sourceName  String
+  measuredAt  DateTime
+  bpm         Float
+  receivedAt  DateTime @default(now())
+
+  @@unique([sourceName, measuredAt])
+  @@index([measuredAt])
+}

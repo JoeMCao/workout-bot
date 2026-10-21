@@ -1,11 +1,11 @@
-import { requireWeightSyncKey } from "@/lib/body-weight-auth";
+import { requireHealthSyncKey } from "@/lib/health-sync-auth";
 import { errorJson, handleRouteError, json } from "@/lib/http";
 import { importBodyWeight } from "@/lib/services/body-weight";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const authError = requireWeightSyncKey(request);
+  const authError = requireHealthSyncKey(request);
   if (authError) return authError;
   try {
     const text = await request.text();

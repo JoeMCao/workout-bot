@@ -12,6 +12,20 @@ const bodyWeightSchema = {
   }
 };
 
+const vitalProperties = {
+  id: { type: "string" }, source: { type: "string", enum: ["apple_health"] },
+  sourceName: { type: "string" }, measuredAt: { type: "string", format: "date-time" },
+  receivedAt: { type: "string", format: "date-time" }
+};
+const bloodPressureSchema = { type: "object", properties: {
+  ...vitalProperties, systolic: { type: "number" }, diastolic: { type: "number" },
+  unit: { type: "string", enum: ["mmHg"] },
+  pairingMethod: { type: "string", enum: ["exact_source_and_timestamp"] }
+} };
+const pulseSchema = { type: "object", properties: {
+  ...vitalProperties, bpm: { type: "number" }, unit: { type: "string", enum: ["bpm"] }
+} };
+
 const severityEnum = ["none", "mild", "moderate", "severe"];
 const levelEnum = ["low", "medium", "high"];
 
@@ -1188,20 +1202,29 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
-      "/api/body-weight": {
+      "/api/health-measurements": {
         get: {
-          operationId: "getBodyWeight",
-          summary: "Read latest dated Apple Health weight and recent measurements",
-          description: "Use for body weight. Records arrive via an iPhone automation. Report measuredAt, never fetchedAt or receivedAt as weigh-in time. latest is null until a reading arrives. An old reading does not mean the user weighed in today. WHOOP's undated saved weight remains available through the legacy REST endpoint.",
+          operationId: "getHealthMeasurements",
+          summary: "Read dated Apple Health weight, OMRON blood pressure and spot pulse",
+          description: "Use measuredAt, never import/retrieval time, as measurement time. Each metric has its own latest reading, which may be old or null. BP components match only on exact source/time; incompleteCount signals unmatched components. Pulse is OMRON spot pulse, not WHOOP resting heart rate, and is not automatically linked to BP. No diagnostic interpretation is provided.",
           parameters: [{ name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 30, default: 7 } }],
           responses: {
-            "200": { description: "Latest and recent dated weights", content: { "application/json": { schema: {
-              type: "object",
-              properties: {
-                latest: { ...bodyWeightSchema, nullable: true },
-                measurements: { type: "array", items: bodyWeightSchema },
-                fetchedAt: { type: "string", format: "date-time" },
-                note: { type: "string" }
+            "200": { description: "Latest and recent measurements", content: { "application/json": { schema: {
+              type: "object", properties: {
+                weight: { type: "object", properties: {
+                  latest: { ...bodyWeightSchema, nullable: true },
+                  measurements: { type: "array", items: bodyWeightSchema }
+                } },
+                bloodPressure: { type: "object", properties: {
+                  latest: { ...bloodPressureSchema, nullable: true },
+                  measurements: { type: "array", items: bloodPressureSchema },
+                  incompleteCount: { type: "integer" }
+                } },
+                pulse: { type: "object", properties: {
+                  latest: { ...pulseSchema, nullable: true },
+                  measurements: { type: "array", items: pulseSchema }
+                } },
+                fetchedAt: { type: "string", format: "date-time" }, note: { type: "string" }
               }
             } } } },
             "401": { description: "Missing or invalid Workout Bot API key" }

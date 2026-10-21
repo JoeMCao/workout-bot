@@ -447,6 +447,6 @@ TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55441/workout_bot_sensation_te
 
 Deploy the additive migration and API before refreshing GPT Actions and the live instructions. See `docs/SENSATION_JOURNAL_VERIFICATION.md` for conversational checks and release evidence.
 
-## Apple Health body weight
+## Apple Health measurements
 
-An iPhone Shortcut can automatically import dated weight readings after leaving VeSync. The upload uses a dedicated write-only key; the coach reads the latest measurement through REST/MCP. See [setup and verification](docs/APPLE_HEALTH_WEIGHT_SYNC.md). Re-import the GPT Action schema to enable `getBodyWeight`, which replaces the undated WHOOP weight Action within the 30-operation budget. The legacy WHOOP endpoint remains available.
+One iPhone Shortcut imports dated weight plus OMRON blood pressure and spot pulse after leaving VeSync or OMRON Connect. Import routes use a dedicated write-only key; the coach reads all three through `GET /api/health-measurements` or MCP `get_health_measurements`. See [setup and verification](docs/APPLE_HEALTH_SYNC.md). Re-import the GPT Action schema to enable `getHealthMeasurements`, which replaces the weight-only Action within the 30-operation budget. Existing weight-only and WHOOP REST/MCP interfaces remain available.

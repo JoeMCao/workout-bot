@@ -16,7 +16,7 @@ test("GPT Action schema fits the 30-operation limit and exposes weight plus batc
   );
   const operationIds = operations.map((operation) => operation.operationId);
   assert.ok(operations.length <= 30, `GPT Actions supports at most 30 operations; got ${operations.length}`);
-  assert.ok(operationIds.includes("getBodyWeight"));
+  assert.ok(operationIds.includes("getHealthMeasurements"));
   assert.ok(operationIds.includes("logExerciseSets"));
   assert.ok(!operationIds.includes("logExerciseSet"));
 });

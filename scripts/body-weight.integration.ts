@@ -69,7 +69,7 @@ test("weight sync through real routes and database", async (t) => {
     const spec = buildOpenApiSpec("https://example.com");
     const operations = Object.values(spec.paths).flatMap((p) => Object.values(p).filter((o) => typeof o === "object" && "operationId" in o));
     assert.ok(operations.length <= 30);
-    assert.ok(operations.some((o) => o.operationId === "getBodyWeight"));
+    assert.ok(operations.some((o) => o.operationId === "getHealthMeasurements"));
     assert.ok(!Object.keys(spec.paths).includes("/api/body-weight/import"));
   });
 });
