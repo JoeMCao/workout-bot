@@ -185,6 +185,31 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      {overview.todayActivities.length > 0 ? (
+        <section className="session-focus" aria-labelledby="today-activities-title">
+          <div className="session-focus-copy">
+            <p className="eyebrow">Today’s activities</p>
+            <h2 id="today-activities-title">{formatPlanDate(overview.today)}</h2>
+            <div className="session-activity-list">
+              <div className="exercise-chip-list" aria-label="Activities today">
+                {overview.todayActivities.map((activity) => (
+                  <span className="exercise-chip activity-chip" key={activity.id}>
+                    <strong>{activityLabel(activity)}</strong>
+                    {activity.durationMinutes != null ? (
+                      <span>{Math.round(activity.durationMinutes)} min</span>
+                    ) : null}
+                    {activity.avgHeartRate != null ? (
+                      <span>{activity.avgHeartRate} avg HR</span>
+                    ) : null}
+                    {activity.source === "whoop_api" ? <small>WHOOP</small> : null}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section className="session-focus" aria-labelledby="session-focus-title">
         {slot ? (
           <>
@@ -197,7 +222,7 @@ export default async function DashboardPage({
                       : "Today’s workout"
                     : overview.slotSource === "next"
                       ? "Next planned workout"
-                      : "Latest completed workout"}
+                      : "Latest completed gym session"}
                 </p>
                 <span className={`status-badge status-${slot.status}`}>
                   {slot.status.replace("_", " ")}
@@ -234,25 +259,6 @@ export default async function DashboardPage({
                     : "No exercise names are saved for this slot yet."}
                 </p>
               )}
-              {overview.todayActivities.length > 0 ? (
-                <div className="session-exercise-list session-activity-list">
-                  <p className="session-exercise-label">Also today</p>
-                  <div className="exercise-chip-list" aria-label="Other activities today">
-                    {overview.todayActivities.map((activity) => (
-                      <span className="exercise-chip activity-chip" key={activity.id}>
-                        <strong>{activityLabel(activity)}</strong>
-                        {activity.durationMinutes != null ? (
-                          <span>{Math.round(activity.durationMinutes)} min</span>
-                        ) : null}
-                        {activity.avgHeartRate != null ? (
-                          <span>{activity.avgHeartRate} avg HR</span>
-                        ) : null}
-                        {activity.source === "whoop_api" ? <small>WHOOP</small> : null}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
 
             {overview.recoveryContext ? (
