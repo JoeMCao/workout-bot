@@ -17,7 +17,7 @@ Use **Heart Rate**, not Resting Heart Rate. The OMRON source filter is required 
 
 For each block:
 
-1. **Find Health Samples:** choose the table's type, source and unit. Start Date **in the last 7 days**; sort by Start Date, **Latest First**. Limit 14 for weight and 100 for each OMRON type. These limits cover normal personal use, not a historical backfill.
+1. **Find Health Samples:** choose the table's type, source and unit. Start Date **in the last 7 days**; sort by Start Date, **Latest First**. Limit **3** for each type. Keeping each run to at most 12 uploads makes the app-close automation shorter. This prioritizes ongoing readings and retries the newest three samples per type; it is not a complete history import.
 2. **Repeat with Each:** input = that block's Health Samples.
 3. Inside Repeat, add **Format Date**. Input = **Repeat Item → Start Date**, Date Format = **ISO 8601**. Never use Current Date. Preserve the recorded seconds and timezone; do not format to just a day or minute.
 4. Inside Repeat, add **Get Contents of URL**. Base URL = `https://workout-bot-virid.vercel.app`, plus the table's path. Method = **POST**. Header **Authorization** = `Bearer ` plus the dedicated import key from the private setup file. The same key works for all four blocks.
@@ -51,7 +51,7 @@ Check one real reading from each device against Apple Health and the combined re
 
 Remove **Show Result** after testing. In Shortcuts → **Automation → + → App**, select **VeSync and OMRON Connect**, **Is Closed**, **Run Immediately** (older versions: turn off Ask Before Running). Choose **Sync Health to Coach**. If the picker only supports one app, create two automations pointing to the same Shortcut. Turn off Notify When Run if offered and desired. Avoid duplicating an existing weight-only automation.
 
-Switching away from an app counts as closing; force-quitting is unnecessary. Let the device app finish updating before leaving it. Immediately locking the phone may prevent Health reads. Successful runs retry the recent window, so an interrupted or late write can be recovered later without duplicate records. Confirm the first actual automated upload before considering sync active.
+Switching away from an app counts as closing; force-quitting is unnecessary. Let the device app finish updating before leaving it. Immediately locking the phone may prevent Health reads. Successful runs retry the newest three samples per type within the recent window, so an interrupted or late write can be recovered while it remains among those samples, without duplicate records. More than three missed readings of one type require a manual catch-up if you want all of them. Confirm the first actual automated upload before considering sync active.
 
 ## Coach access
 
