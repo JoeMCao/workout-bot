@@ -174,7 +174,7 @@ test("batch set persistence through the REST handler", async (t) => {
     const spec = buildOpenApiSpec("http://localhost");
     assert.equal(spec.paths["/api/sets/batch"].post.operationId, "logExerciseSets");
     assert.ok(spec.paths["/api/sets/batch"].post.description.length <= 300, "GPT Actions descriptions must fit the editor limit");
-    assert.equal(spec.paths["/api/sets"].post.operationId, "logExerciseSet");
+    assert.equal("/api/sets" in spec.paths, false, "Legacy single-set route is omitted from the GPT Action budget");
     assert.deepEqual(spec.components.schemas.CreateSetsBatchRequest.required, ["sessionId", "sets"]);
   });
 });

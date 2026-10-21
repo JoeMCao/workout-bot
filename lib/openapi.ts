@@ -662,39 +662,8 @@ export function buildOpenApiSpec(baseUrl: string) {
           }
         }
       },
-      "/api/sets": {
-        post: {
-          operationId: "logExerciseSet",
-          summary: "Log one completed set (legacy; prefer logExerciseSets)",
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/CreateSetRequest"
-                }
-              }
-            }
-          },
-          responses: {
-            "201": {
-              description: "Created set",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      set: {
-                        $ref: "#/components/schemas/ExerciseSet"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
+      // GPT Actions allows 30 operations. logExerciseSets handles 1–100 sets;
+      // the legacy POST /api/sets route remains available outside this schema.
       "/api/sets/{id}": {
         patch: {
           operationId: "updateExerciseSet",

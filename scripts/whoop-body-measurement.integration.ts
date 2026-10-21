@@ -8,6 +8,19 @@ process.env.WHOOP_CLIENT_SECRET = "test-secret";
 process.env.WHOOP_REDIRECT_URI = "http://localhost/api/auth/whoop/callback";
 process.env.WORKOUT_API_KEY = "test-api-key";
 
+test("GPT Action schema fits the 30-operation limit and exposes weight plus batch logging", async () => {
+  const { buildOpenApiSpec } = await import("../lib/openapi");
+  const spec = buildOpenApiSpec("https://workout-bot-virid.vercel.app");
+  const operations = Object.values(spec.paths).flatMap((path) =>
+    Object.values(path).filter((value) => typeof value === "object" && "operationId" in value)
+  );
+  const operationIds = operations.map((operation) => operation.operationId);
+  assert.ok(operations.length <= 30, `GPT Actions supports at most 30 operations; got ${operations.length}`);
+  assert.ok(operationIds.includes("getWhoopBodyMeasurement"));
+  assert.ok(operationIds.includes("logExerciseSets"));
+  assert.ok(!operationIds.includes("logExerciseSet"));
+});
+
 test("WHOOP weight lookup and permission handling", async (t) => {
   const { prisma } = await import("../lib/prisma");
   const { encryptWhoopToken } = await import("../lib/whoop/crypto");

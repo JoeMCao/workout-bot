@@ -380,6 +380,12 @@ via `/api/auth/whoop/start` to grant `read:body_measurement`. No weight history 
 stored. `fetchedAt` is retrieval time; `measuredAt` is null because WHOOP does not
 provide a measurement date.
 
+After adding an Action, re-import `/api/openapi` in the Workout Buddy editor and
+publish the update. GPT Actions permits at most 30 operations: this schema omits
+the legacy single-set `logExerciseSet` action; use `logExerciseSets` for 1–100 sets.
+The legacy REST endpoint remains available. `npm run test:whoop` checks the Action
+budget and weight lookup behavior.
+
 Start OAuth in the browser:
 
 ```bash
