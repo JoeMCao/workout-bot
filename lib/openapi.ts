@@ -22,6 +22,10 @@ const bloodPressureSchema = { type: "object", properties: {
   unit: { type: "string", enum: ["mmHg"] },
   pairingMethod: { type: "string", enum: ["exact_source_and_timestamp"] }
 } };
+const bodyFatSchema = { type: "object", properties: {
+  ...vitalProperties, percentage: { type: "number", description: "Percentage points: 16.1 means 16.1%, not 0.161" },
+  unit: { type: "string", enum: ["%"] }
+} };
 const pulseSchema = { type: "object", properties: {
   ...vitalProperties, bpm: { type: "number" }, unit: { type: "string", enum: ["bpm"] }
 } };
@@ -1205,7 +1209,7 @@ export function buildOpenApiSpec(baseUrl: string) {
       "/api/health-measurements": {
         get: {
           operationId: "getHealthMeasurements",
-          summary: "Read dated Apple Health weight, OMRON blood pressure and spot pulse",
+          summary: "Read dated Apple Health weight, body fat, OMRON blood pressure and spot pulse",
           description: "Use measuredAt, never import/retrieval time, as measurement time. Each metric has its own latest reading, which may be old or null. BP components match only on exact source/time; incompleteCount signals unmatched components. Pulse is OMRON spot pulse, not WHOOP resting heart rate, and is not automatically linked to BP. No diagnostic interpretation is provided.",
           parameters: [{ name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 30, default: 7 } }],
           responses: {
@@ -1214,6 +1218,10 @@ export function buildOpenApiSpec(baseUrl: string) {
                 weight: { type: "object", properties: {
                   latest: { ...bodyWeightSchema, nullable: true },
                   measurements: { type: "array", items: bodyWeightSchema }
+                } },
+                bodyFat: { type: "object", properties: {
+                  latest: { ...bodyFatSchema, nullable: true },
+                  measurements: { type: "array", items: bodyFatSchema }
                 } },
                 bloodPressure: { type: "object", properties: {
                   latest: { ...bloodPressureSchema, nullable: true },

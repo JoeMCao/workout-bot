@@ -16,7 +16,7 @@ test("OMRON sync persists correctly and the coach sees only complete BP readings
   const { getHealthMeasurements } = await import("../lib/services/health-measurements");
   const { importBodyWeight } = await import("../lib/services/body-weight");
   const { buildOpenApiSpec } = await import("../lib/openapi");
-  async function clear() { await prisma.bloodPressure.deleteMany(); await prisma.omronPulse.deleteMany(); await prisma.bodyWeight.deleteMany(); }
+  async function clear() { await prisma.bloodPressure.deleteMany(); await prisma.omronPulse.deleteMany(); await prisma.bodyWeight.deleteMany(); await prisma.bodyFat.deleteMany(); }
   await clear();
   t.after(async () => { await clear(); await prisma.$disconnect(); });
   const sample = { metric: "systolic", value: 120, unit: "mmHg", sourceName: "OMRON connect", measuredAt: "2026-10-20T07:30:00-07:00" };
@@ -86,11 +86,52 @@ test("OMRON sync persists correctly and the coach sees only complete BP readings
     assert.equal(await prisma.omronPulse.count(), 2);
     assert.equal(await prisma.whoopRecovery.count(), 0);
   });
+  await t.test("body fat validates units, retains sample time and deduplicates retries", async () => {
+    const { POST: postFat } = await import("../app/api/body-fat/import/route");
+    const fat = { value: 16.1, unit: "%", sourceName: "VeSync", measuredAt: "2026-10-20T07:21:00-07:00" };
+    const sendFat = (body: unknown, key = "test-import-key") => postFat(new Request("http://localhost/api/body-fat/import", {
+      method: "POST", headers: { authorization: `Bearer ${key}` }, body: JSON.stringify(body)
+    }));
+    assert.equal((await getHealthMeasurements()).bodyFat.latest, null);
+    assert.equal((await sendFat(fat, "test-coach-key")).status, 401);
+    for (const invalid of [
+      { ...fat, value: 0 }, { ...fat, value: -1 }, { ...fat, value: 101 },
+      { ...fat, value: "16.1" }, { ...fat, unit: "kg" }, { ...fat, value: 16.1, unit: "fraction" },
+      { ...fat, sourceName: " " }, { ...fat, measuredAt: "2099-01-01T00:00:00Z" },
+      { ...fat, measuredAt: "2026-10-20T07:21:00" }, { ...fat, measuredAt: "2026-02-30T00:00:00Z" },
+      { ...fat, unexpected: true }
+    ]) assert.equal((await sendFat(invalid)).status, 400);
+    assert.equal(await prisma.bodyFat.count(), 0);
+    assert.equal((await sendFat(fat)).status, 200);
+    const first = (await getHealthMeasurements()).bodyFat.latest!;
+    const retries = await Promise.all([
+      sendFat(fat), sendFat({ ...fat, value: 0.161, unit: "fraction", measuredAt: "2026-10-20T14:21:00Z" })
+    ]);
+    assert.ok(retries.every((r) => r.status === 200));
+    assert.equal(await prisma.bodyFat.count(), 1);
+    await sendFat({ ...fat, value: 16.2 });
+    await sendFat({ ...fat, value: 17, measuredAt: "2026-10-19T07:21:00-07:00" });
+    const response = await GET(new Request("http://localhost/api/health-measurements?limit=1", { headers: { authorization: "Bearer test-coach-key" } }));
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.bodyFat.latest.percentage, 16.2);
+    assert.equal(data.bodyFat.latest.unit, "%");
+    assert.equal(data.bodyFat.latest.sourceName, "VeSync");
+    assert.equal(data.bodyFat.latest.measuredAt, "2026-10-20T14:21:00.000Z");
+    assert.equal(data.bodyFat.latest.receivedAt, first.receivedAt.toISOString());
+    assert.equal(data.bodyFat.measurements.length, 1);
+    assert.equal(await prisma.bodyFat.count(), 2);
+    assert.notEqual(data.weight.latest.measuredAt, data.bodyFat.latest.measuredAt);
+    await sendFat({ ...fat, sourceName: "Other scale" });
+    assert.equal(await prisma.bodyFat.count(), 3);
+  });
   await t.test("coach Action uses one combined read within the 30-operation budget", () => {
     const spec = buildOpenApiSpec("https://example.com");
     const operations = Object.values(spec.paths).flatMap((p) => Object.values(p).filter((o) => typeof o === "object" && "operationId" in o));
     assert.ok(operations.length <= 30);
     assert.ok(operations.some((o) => o.operationId === "getHealthMeasurements"));
     assert.ok(!Object.keys(spec.paths).includes("/api/health-measurements/import"));
+    assert.ok(!Object.keys(spec.paths).includes("/api/body-fat/import"));
+    assert.ok(spec.paths["/api/health-measurements"].get.responses["200"].content["application/json"].schema.properties.bodyFat);
   });
 });

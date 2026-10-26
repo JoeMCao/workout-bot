@@ -16,7 +16,7 @@ Health
 
 # In Scope
 
-Workout and activity logging, exercise and set history, weekly training planning and review, readiness and recovery context, finger sensation journaling and Iron Neck session history, WHOOP synchronization, dated weight, OMRON blood-pressure and pulse synchronization from Apple Health, the training dashboard, and the REST, OpenAPI, MCP, Custom GPT, and private ChatGPT plugin interfaces that support those workflows.
+Workout and activity logging, exercise and set history, weekly training planning and review, readiness and recovery context, finger sensation journaling and Iron Neck session history, WHOOP synchronization, dated weight and body-fat percentage, OMRON blood-pressure and pulse synchronization from Apple Health, the training dashboard, and the REST, OpenAPI, MCP, Custom GPT, and private ChatGPT plugin interfaces that support those workflows.
 
 # Out of Scope
 

@@ -630,8 +630,8 @@ export function createWorkoutMcpHandler(scopes: readonly string[], oauthResource
     server.registerTool(
       "get_health_measurements",
       {
-        title: "Get Weight, Blood Pressure and Pulse",
-        description: "Read dated Apple Health weight plus OMRON blood pressure and spot pulse. Use measuredAt, never import time. Each latest may be stale or null. BP pairs match exact source/time; unmatched components are counted. Do not equate spot pulse with WHOOP resting heart rate or assume it belongs to the latest BP reading.",
+        title: "Get Weight, Body Fat, Blood Pressure and Pulse",
+        description: "Read dated Apple Health weight and body-fat percentage plus OMRON blood pressure and spot pulse. Use measuredAt, never import time. Each latest may be stale or null. BP pairs match exact source/time; unmatched components are counted. Do not equate spot pulse with WHOOP resting heart rate or assume it belongs to the latest BP reading.",
         inputSchema: { limit: z.number().int().min(1).max(30).optional() },
         ...secure(READ_SCOPE),
         annotations: { readOnlyHint: true, openWorldHint: false }

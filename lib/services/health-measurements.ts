@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { omronInput } from "@/lib/omron-validation";
 import { getBodyWeight } from "@/lib/services/body-weight";
+import { getBodyFat } from "@/lib/services/body-fat";
 
 export async function importOmronMeasurement(input: unknown) {
   const sample = omronInput.parse(input);
@@ -19,8 +20,9 @@ export async function importOmronMeasurement(input: unknown) {
 
 export async function getHealthMeasurements(limit = 7) {
   const take = Math.min(30, Math.max(1, limit));
-  const [weight, pressures, pulses, incompleteCount] = await Promise.all([
+  const [weight, bodyFat, pressures, pulses, incompleteCount] = await Promise.all([
     getBodyWeight(take),
+    getBodyFat(take),
     prisma.bloodPressure.findMany({
       where: { systolic: { not: null }, diastolic: { not: null } },
       orderBy: [{ measuredAt: "desc" }, { id: "desc" }], take
@@ -34,6 +36,7 @@ export async function getHealthMeasurements(limit = 7) {
   const pulse = pulses.map((row) => ({ ...row, source: "apple_health", unit: "bpm" }));
   return {
     weight,
+    bodyFat,
     bloodPressure: { latest: bloodPressure[0] ?? null, measurements: bloodPressure, incompleteCount },
     pulse: { latest: pulse[0] ?? null, measurements: pulse },
     fetchedAt: new Date().toISOString(),

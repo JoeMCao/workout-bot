@@ -288,6 +288,18 @@ model BodyWeight {
   @@index([measuredAt])
 }
 
+/// Body-fat readings retain their own source and measurement time, independent of weight.
+model BodyFat {
+  id         String   @id @default(cuid())
+  sourceName String
+  measuredAt DateTime
+  percentage Float
+  receivedAt DateTime @default(now())
+
+  @@unique([sourceName, measuredAt])
+  @@index([measuredAt])
+}
+
 /// BP components are matched only by exact Apple Health time and OMRON source.
 model BloodPressure {
   id          String   @id @default(cuid())
