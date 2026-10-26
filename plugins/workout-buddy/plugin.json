@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "workout-buddy",
+  "version": "0.1.0",
+  "description": "Private workout coaching, training history and confirmed exercise logging.",
+  "author": {
+    "name": "Jose Cao"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Workout Buddy",
+        "shortDescription": "Plan, coach and log your workouts",
+        "longDescription": "Coach workouts using your approved plan, training history and recovery. Save only confirmed work and preserve exercise-block confirmations.",
+        "developerName": "Jose Cao",
+        "category": "Health & Fitness",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": [
+          "Plan today's workout using my history and readiness.",
+          "Review my last workout."
+        ]
+      }
+    }
+  }
+}

@@ -21,13 +21,16 @@
     "test:whoop": "node --import tsx --test scripts/whoop-body-measurement.integration.ts",
     "test:sensations": "node --import tsx --test scripts/sensation-journal.integration.ts",
     "test:weight": "node --import tsx --test scripts/body-weight.integration.ts",
-    "test:health-sync": "node --import tsx --test scripts/health-sync.integration.ts"
+    "test:health-sync": "node --import tsx --test scripts/health-sync.integration.ts",
+    "test:plugin": "node --import tsx --test scripts/plugin-auth.test.ts",
+    "plugin:package": "tsx scripts/package-workout-plugin.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "latest",
     "dotenv": "^17.4.2",
+    "jose": "^6.2.13",
     "mcp-handler": "^2.1.0",
     "next": "latest",
     "pg": "^8.20.0",

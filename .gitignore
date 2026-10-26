@@ -8,3 +8,6 @@ coverage
 
 prisma/dev.db
 .vercel
+
+# Personal coaching references belong only in the locally built private plugin.
+plugins/workout-buddy/skills/workout-buddy/references/
