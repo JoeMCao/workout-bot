@@ -1,6 +1,8 @@
 # Workout Bot API
 
-A lightweight workout memory layer for a Custom GPT coach.
+A lightweight workout memory layer for a conversational coach.
+
+The private ChatGPT plugin rollout uses the existing Auth0 account with a separate Workout Buddy application. See [setup and migration plan](docs/WORKOUT_PLUGIN_SETUP.md).
 
 Workout Bot API lets you talk to a GPT from your phone during training while the API quietly stores the data that matters: sessions, exercises, sets, readiness, pain signals, fatigue, soreness, and WHOOP-style recovery metrics. The goal is simple: give an AI coach enough structured history to prescribe better workouts than a stateless chat ever could.
 
@@ -14,7 +16,7 @@ Workout Bot API lets you talk to a GPT from your phone during training while the
 - Stores a lightweight weekly training plan with dated focus slots and planned exercise names, while keeping actual reps and weights in the existing set log.
 - Logs **activity sessions** separately from strength work: cardio, endurance, sports, recovery (sauna, cold plunge), and mobility, with optional WHOOP-style metrics and an optional link to a workout session.
 - Exposes a public OpenAPI `3.1.0` schema for easy Custom GPT Action import.
-- Protects all workout data routes with a private bearer API key.
+- Protects legacy workout routes with a private bearer API key and the private plugin with owner-scoped OAuth.
 
 ## Why This Exists
 
@@ -52,11 +54,13 @@ That makes the GPT useful across sessions. It can see recent performance, avoid 
 
 ## Security Model
 
-Every route except `GET /api/openapi` requires:
+Legacy workout data routes use:
 
 ```http
 Authorization: Bearer $WORKOUT_API_KEY
 ```
+
+The separate `/api/plugin/mcp` endpoint requires an Auth0 access token for the Workout audience and pinned owner. Its public OAuth discovery endpoint contains no workout data.
 
 Use a long random value for `WORKOUT_API_KEY` and set the same value in Vercel and your Custom GPT Action authentication settings.
 
