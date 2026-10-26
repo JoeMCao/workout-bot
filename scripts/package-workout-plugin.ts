@@ -6,7 +6,7 @@ async function main() {
   const root = process.cwd();
   // The repository is public. Personal health context stays local, then goes
   // only into the owner's private ChatGPT package, never Git.
-  for (const file of ["mcp-coaching.md", "coaching-policy.md"]) {
+  for (const file of ["mcp-coaching.md", "coaching-policy.md", "goals.md"]) {
     const source = path.join(root, "plugins/workout-buddy/skills/workout-buddy/references", file);
     try { await readFile(source, "utf8"); }
     catch { throw new Error(`Missing private coaching reference: ${file}. See docs/WORKOUT_PLUGIN_SETUP.md.`); }

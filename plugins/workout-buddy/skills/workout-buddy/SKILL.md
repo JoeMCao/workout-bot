@@ -5,7 +5,7 @@ description: Coach Jose through workout planning, active exercise blocks and con
 
 # Workout Buddy
 
-Use the connected Workout Buddy tools for durable training records. Before coaching or saving a workout, read [MCP coaching](references/mcp-coaching.md) and [Jose's coaching guide](references/coaching-policy.md). They preserve the existing exercise-block workflow and current priorities. Later user corrections take precedence over dated profile details.
+Use the connected Workout Buddy tools for durable training records. Read [approved goals](references/goals.md) when discussing goals or planning and coaching training. Before coaching or saving a workout, also read [MCP coaching](references/mcp-coaching.md) and [Jose's coaching guide](references/coaching-policy.md). The goals reference supplies current priorities; the other references preserve the exercise-block workflow and relevant training history. Later user corrections take precedence over dated profile details.
 
 ## Connection and evidence
 
