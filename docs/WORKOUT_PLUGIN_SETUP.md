@@ -2,13 +2,13 @@
 
 ## Status and rollout
 
-October 26, 2026: OAuth backend deployed, separate Auth0 application/API configured, and the private ChatGPT plugin connected. Coaching package version **1.1.0** is installed with one application and one skill. The existing Custom GPT and key-authenticated clients continue using their current routes. First real workout logging acceptance is still pending.
+October 26, 2026: OAuth backend deployed, separate Auth0 application/API configured, and the private ChatGPT plugin connected. Coaching package version **1.2.0** is installed with one application and one skill, including a separate approved-goals reference. The existing Custom GPT and key-authenticated clients continue using their current routes. First real workout logging acceptance is still pending.
 
 - [Private Workout Buddy plugin](https://chatgpt.com/plugins/plugin_asdk_app_6adf9b13da448191baf1ae624453c960).
 - Auth0 public client ID: `tpc_te8o2jwE4fG8oQ5MXNsgCc`; API ID: `6adf98e3fd095ccf81332552`.
 - Registered callback: `https://chatgpt.com/connector_platform_oauth_redirect`.
 - Production code: merge commit `8fcc64273012e0c0e39c1bece66ce50d9d6598b9`, deployment `dpl_CxQ9eQXQpoLa5ikjtFF29jRfbdgh`.
-- Verified live public discovery returns 200, anonymous MCP requests return a 401 OAuth challenge, and the legacy REST route still rejects anonymous requests. Auth0 consent completed for the owner with both Workout scopes and offline access. The plugin package upload succeeded and displays version 1.1.0.
+- Verified live public discovery returns 200, anonymous MCP requests return a 401 OAuth challenge, and the legacy REST route still rejects anonymous requests. Auth0 consent completed for the owner with both Workout scopes and offline access. The latest plugin package upload succeeded and displays version 1.2.0.
 - ChatGPT read-only acceptance completed: the plugin returned the latest completed strength workout and recent activity with dates and a completed response. The test explicitly prohibited creates, updates, deletes and sync. No synthetic production records were used. Exercise logging and retry acceptance remain for the next real workout.
 
 Reproducible setup sequence:
@@ -50,14 +50,17 @@ The Workout backend needs no Auth0 client secret; ChatGPT uses it at token excha
 
 ## Private coaching package
 
-The GitHub repository is public. Personal coaching references are deliberately ignored by Git and must stay in a private ChatGPT plugin. The current local package copies the owner's existing `GPT/coach-mcp-instructions.txt` and local `GPT/coaching-policy.md`, preserving daily previews, full active exercise blocks, optional one-set mode, receipt-based logging and health source/date distinctions. Original in-progress GPT files were not changed.
+The GitHub repository is public. Personal coaching references are deliberately ignored by Git and must stay private. The local package began from the owner's existing `GPT/coach-mcp-instructions.txt` and local `GPT/coaching-policy.md`, preserving daily previews, full active exercise blocks, optional one-set mode, receipt-based logging and health source/date distinctions. The private references now link to a separate, dated approved-goals file that supersedes older priorities without discarding relevant history. Original in-progress GPT files were not changed.
 
 On a fresh checkout, place the approved files at:
 
 - `plugins/workout-buddy/skills/workout-buddy/references/mcp-coaching.md`
 - `plugins/workout-buddy/skills/workout-buddy/references/coaching-policy.md`
+- `plugins/workout-buddy/skills/workout-buddy/references/goals.md`
 
-Use relative links between these references. Packaging fails if either is missing; do not replace them with invented profile facts.
+Use relative links between these references. Packaging fails if any required reference is missing; do not replace them with invented profile facts.
+
+The private ChatGPT project uses a text copy of the approved goals and the owner's selected source documents, with project instructions directing coaching and durable record access through the plugin. When goals change, update the private goals reference, publish the next plugin package, and replace the project's dated text copy together. Project sources are snapshots, not an automatic sync. Keep personal source documents and project identifiers out of this public repository.
 
 For an initial portable package:
 
