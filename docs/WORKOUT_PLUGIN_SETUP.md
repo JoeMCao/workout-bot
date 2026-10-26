@@ -2,7 +2,16 @@
 
 ## Status and rollout
 
-October 25, 2026: implementation and private coaching package prepared locally. Auth0 registration, production activation and ChatGPT connection are pending. The existing Custom GPT and key-authenticated clients continue using their current routes.
+October 26, 2026: OAuth backend deployed, separate Auth0 application/API configured, and the private ChatGPT plugin connected. Coaching package version **1.1.0** is installed with one application and one skill. The existing Custom GPT and key-authenticated clients continue using their current routes. First real workout logging acceptance is still pending.
+
+- [Private Workout Buddy plugin](https://chatgpt.com/plugins/plugin_asdk_app_6adf9b13da448191baf1ae624453c960).
+- Auth0 public client ID: `tpc_te8o2jwE4fG8oQ5MXNsgCc`; API ID: `6adf98e3fd095ccf81332552`.
+- Registered callback: `https://chatgpt.com/connector_platform_oauth_redirect`.
+- Production code: merge commit `8fcc64273012e0c0e39c1bece66ce50d9d6598b9`, deployment `dpl_CxQ9eQXQpoLa5ikjtFF29jRfbdgh`.
+- Verified live public discovery returns 200, anonymous MCP requests return a 401 OAuth challenge, and the legacy REST route still rejects anonymous requests. Auth0 consent completed for the owner with both Workout scopes and offline access. The plugin package upload succeeded and displays version 1.1.0.
+- ChatGPT read-only acceptance completed: the plugin returned the latest completed strength workout and recent activity with dates and a completed response. The test explicitly prohibited creates, updates, deletes and sync. No synthetic production records were used. Exercise logging and retry acceptance remain for the next real workout.
+
+Reproducible setup sequence:
 
 1. Register a separate **Workout Buddy — ChatGPT** application and **Workout Buddy API** in the existing Auth0 tenant.
 2. Add the five `WORKOUT_*` plugin settings below to the existing Workout Bot Vercel project; deploy the tested code.
@@ -59,7 +68,7 @@ npm run plugin:package -- --resource=https://workout-bot-virid.vercel.app/api/pl
 For the registered ChatGPT plugin, save only its public identifiers in `plugins/workout-buddy/chatgpt-registration.json`:
 
 ```json
-{"name":"EXACT_REGISTERED_PLUGIN_NAME","appId":"EXACT_APP_ID","version":"0.1.0"}
+{"name":"EXACT_REGISTERED_PLUGIN_NAME","appId":"EXACT_APP_ID","version":"NEXT_VERSION"}
 ```
 
 Then run `npm run plugin:package -- --chatgpt`. Upload the ZIP to that existing private plugin. It includes the registered app mapping and skill, avoiding a second OAuth connection. The ZIP goes under ignored `dist/`; do not commit or publish it. Keep secrets out of the package.
