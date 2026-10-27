@@ -280,6 +280,7 @@ model WriteEvent {
 model BodyWeight {
   id         String   @id @default(cuid())
   source     String   @default("apple_health")
+  sourceName String?
   measuredAt DateTime
   weightKg   Float
   receivedAt DateTime @default(now())

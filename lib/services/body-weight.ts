@@ -7,7 +7,8 @@ export async function importBodyWeight(input: unknown) {
   return prisma.bodyWeight.upsert({
     where: { source_measuredAt: { source: data.source, measuredAt: data.measuredAt } },
     create: data,
-    update: { weightKg: data.weightKg }
+    // Older Shortcuts omit sourceName; do not erase provenance supplied by a newer one.
+    update: { weightKg: data.weightKg, sourceName: data.sourceName }
   });
 }
 

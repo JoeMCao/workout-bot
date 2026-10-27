@@ -125,6 +125,38 @@ test("OMRON sync persists correctly and the coach sees only complete BP readings
     await sendFat({ ...fat, sourceName: "Other scale" });
     assert.equal(await prisma.bodyFat.count(), 3);
   });
+  await t.test("all upload routes share the same required fields and accurate timestamp errors", async () => {
+    const { POST: postWeight } = await import("../app/api/body-weight/import/route");
+    const { POST: postFat } = await import("../app/api/body-fat/import/route");
+    const common = { value: 70, sourceName: "VeSync", measuredAt: "2026-10-18T07:31:22-07:00" };
+    const cases = [
+      { route: postWeight, path: "body-weight", body: { ...common, unit: "kg" } },
+      { route: postFat, path: "body-fat", body: { ...common, value: 16.1, unit: "%" } },
+      { route: POST, path: "health-measurements", body: { ...common, sourceName: "OMRON connect", metric: "pulse", unit: "bpm" } }
+    ];
+    for (const { route, path, body } of cases) {
+      const sendSample = (input: unknown) => route(new Request(`http://localhost/api/${path}/import`, {
+        method: "POST", headers: { authorization: "Bearer test-import-key" }, body: JSON.stringify(input)
+      }));
+      for (const field of ["value", "unit", "sourceName", "measuredAt"]) {
+        assert.equal((await sendSample({ ...body, [field]: undefined })).status, 400, `${path}: ${field} required`);
+      }
+      const invalidDate = await sendSample({ ...body, measuredAt: "2026-10-22T12:00:00-07:00\n2026-10-26T01:00:00-07:00" });
+      assert.equal(invalidDate.status, 400);
+      const dateErrors = (await invalidDate.json()).error.details.fieldErrors.measuredAt;
+      assert.ok(dateErrors.includes("Invalid ISO datetime"));
+      assert.ok(!dateErrors.includes("Measurement time cannot be in the future"));
+      const future = await sendSample({ ...body, measuredAt: "2099-01-01T00:00:00Z" });
+      assert.equal(future.status, 400);
+      assert.deepEqual((await future.json()).error.details.fieldErrors.measuredAt, ["Measurement time cannot be in the future"]);
+      const result = await sendSample(body);
+      assert.equal(result.status, 200);
+      const data = await result.json();
+      assert.equal(data.ok, true);
+      assert.equal(data.measurement.sourceName, body.sourceName);
+      assert.equal(data.measurement.measuredAt, "2026-10-18T14:31:22.000Z");
+    }
+  });
   await t.test("coach Action uses one combined read within the 30-operation budget", () => {
     const spec = buildOpenApiSpec("https://example.com");
     const operations = Object.values(spec.paths).flatMap((p) => Object.values(p).filter((o) => typeof o === "object" && "operationId" in o));

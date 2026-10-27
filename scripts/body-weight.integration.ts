@@ -65,6 +65,27 @@ test("weight sync through real routes and database", async (t) => {
     assert.equal(data.latest.weightLb, 181);
     assert.equal(data.measurements.length, 1);
   });
+  await t.test("shared fields enrich existing readings without duplication or lost provenance", async () => {
+    const before = (await getBodyWeight()).latest!;
+    const canonical = { value: 181, unit: "lb", sourceName: "VeSync", measuredAt: payload.measuredAt };
+    const response = await POST(request(canonical));
+    assert.equal(response.status, 200);
+    const saved = (await response.json()).measurement;
+    assert.equal(saved.id, before.id);
+    assert.equal(saved.sourceName, "VeSync");
+    assert.equal(saved.receivedAt, before.receivedAt.toISOString());
+    assert.equal(await prisma.bodyWeight.count(), 2);
+    await POST(request({ ...payload, weight: 181 }));
+    assert.equal((await getBodyWeight()).latest!.sourceName, "VeSync");
+    for (const invalid of [
+      { ...canonical, sourceName: undefined }, { ...canonical, sourceName: " " },
+      { ...canonical, weight: 181 }, { ...canonical, value: undefined },
+      { ...canonical, value: "181" }, { ...canonical, value: 0 }
+    ]) assert.equal((await POST(request(invalid))).status, 400);
+    assert.equal(await prisma.bodyWeight.count(), 2);
+    const read = await GET(new Request("http://localhost/api/body-weight", { headers: { authorization: "Bearer test-coach-key" } }));
+    assert.equal((await read.json()).latest.sourceName, "VeSync");
+  });
   await t.test("coach Action stays within budget; upload is not a coach action", () => {
     const spec = buildOpenApiSpec("https://example.com");
     const operations = Object.values(spec.paths).flatMap((p) => Object.values(p).filter((o) => typeof o === "object" && "operationId" in o));

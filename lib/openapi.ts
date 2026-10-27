@@ -6,6 +6,7 @@ const bodyWeightSchema = {
   type: "object",
   properties: {
     id: { type: "string" }, source: { type: "string", enum: ["apple_health"] },
+    sourceName: { type: "string", nullable: true, description: "Originating app supplied by the uploader; null for legacy uploads" },
     weightKg: { type: "number" }, weightLb: { type: "number" },
     measuredAt: { type: "string", format: "date-time" },
     receivedAt: { type: "string", format: "date-time", description: "First import time, not weigh-in time" }

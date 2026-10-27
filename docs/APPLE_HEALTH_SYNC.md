@@ -4,7 +4,7 @@ One iPhone Shortcut uploads recent samples when you leave VeSync or OMRON Connec
 
 ## One-time iPhone setup
 
-Create a Shortcut named **Sync Health to Coach** with five successive Find/Repeat blocks. Each block uses **Find Health Samples**, **Repeat with Each**, **Format Date**, and **Get Contents of URL**. Build and test one block before duplicating it.
+Create a Shortcut named **Sync Health to Coach** with five successive Find/Repeat blocks. Each block uses **Find Health Samples**, **Repeat with Each**, and **Get Contents of URL**. Finish one block with **End Repeat** before starting the next lookup; do not nest these loops. Build and test one block before duplicating it.
 
 | Block | Health sample type | Source filter | Unit | Upload URL path |
 | --- | --- | --- | --- | --- |
@@ -20,17 +20,20 @@ For each block:
 
 1. **Find Health Samples:** choose the table's type, source and unit. Start Date **in the last 7 days**; sort by Start Date, **Latest First**. Limit **3** for each type. Keeping each run to at most 15 uploads makes the app-close automation shorter. This prioritizes ongoing readings and retries the newest three samples per type; it is not a complete history import.
 2. **Repeat with Each:** input = that block's Health Samples.
-3. Inside Repeat, add **Format Date**. Input = **Repeat Item → Start Date**, Date Format = **ISO 8601**. Never use Current Date. Preserve the recorded seconds and timezone; do not format to just a day or minute.
+3. For the JSON `measuredAt` text field, select **Repeat Item → Start Date** directly. In that variable’s settings, choose **ISO 8601** and turn **ISO 8601 Time** on. Do not add a separate Format Date action: on the tested phone, formatting the already-formatted variable again reparsed it into incorrect dates. Never use Current Date. Preserve the recorded seconds and timezone.
 4. Inside Repeat, add **Get Contents of URL**. Base URL = `https://workout-bot-virid.vercel.app`, plus the table's path. Method = **POST**. Header **Authorization** = `Bearer ` plus the dedicated import key from the private setup file. The same key works for all five blocks.
 5. Request Body = **JSON**. Use the fields below. Numeric fields must be Number, not Text. Use Repeat Item's **Value** property, not a daily average.
+
+All new uploads use the same four fields: **`value`** (Number), **`unit`** (Text), **`sourceName`** (Text), and **`measuredAt`** (Text). OMRON also needs **`metric`** to select systolic, diastolic or pulse. All three endpoints use the same import key, JSON format and timestamp validation. Units and measurement bounds remain specific to the metric.
 
 Weight fields:
 
 | Key | JSON type | Value |
 | --- | --- | --- |
-| `weight` | Number | Repeat Item → Value |
+| `value` | Number | Repeat Item → Value |
 | `unit` | Text | `lb` (or `kg`, matching Find Health Samples) |
-| `measuredAt` | Text | Format Date output |
+| `sourceName` | Text | Exact source name selected in Find, e.g. `VeSync` |
+| `measuredAt` | Text | Repeat Item → Start Date, formatted in the variable as ISO 8601 with time |
 
 Body-fat fields:
 
@@ -39,7 +42,7 @@ Body-fat fields:
 | `value` | Number | Repeat Item → Value |
 | `unit` | Text | `%` for percentage points, or `fraction` for a 0–1 value; verify below |
 | `sourceName` | Text | Exact source name selected in Find Health Samples |
-| `measuredAt` | Text | Format Date output |
+| `measuredAt` | Text | Repeat Item → Start Date, formatted in the variable as ISO 8601 with time |
 
 Before enabling body-fat uploads, temporarily show Repeat Item's numeric Value and compare it with the same sample in Health. For a Health reading of 16.1%, send `16.1` with `%`, or `0.161` with `fraction`. HealthKit stores percent quantities as fractions; confirm what Shortcuts exposes rather than guessing or multiplying unconditionally. The receiver always returns percentage points. Body fat keeps its own measurement time and is not automatically paired with a weight entry. The source name is supplied by the Shortcut, not independently verified by the receiver.
 
@@ -51,7 +54,7 @@ OMRON fields (three separate blocks):
 | `value` | Number | Repeat Item → Value |
 | `unit` | Text | `mmHg` for pressure; `bpm` for pulse |
 | `sourceName` | Text | Exact OMRON source name selected in Find, e.g. `OMRON connect`. Use the same name in all three OMRON blocks. |
-| `measuredAt` | Text | Format Date output |
+| `measuredAt` | Text | Repeat Item → Start Date, formatted in the variable as ISO 8601 with time |
 
 Do not copy the example numbers below as real readings. Do not share a configured Shortcut containing the private key.
 
@@ -75,7 +78,15 @@ The coach must use each reading's `measuredAt`. `receivedAt` is first import tim
 
 ## Receiver contract
 
-Weight retains its existing API. Body fat uses `POST /api/body-fat/import` with the same key:
+Weight uses `POST /api/body-weight/import`:
+
+```json
+{"value":179.1,"unit":"lb","sourceName":"VeSync","measuredAt":"2026-10-22T08:01:00-07:00"}
+```
+
+For compatibility, weight also accepts the old `weight` field in place of `value`, with `sourceName` optional only in that legacy form. Sending both `value` and `weight` is rejected. New uploads require all four shared fields. Older records retain a null source name until an upload supplies it; the server does not invent their source. Weight retains its existing Apple Health/time identity, so switching payload formats enriches the same record, preserves its first import time and does not duplicate the weigh-in. A legacy retry does not erase an existing source name. Coach reads retain `weightKg`/`weightLb` and now also expose `sourceName`.
+
+Body fat uses `POST /api/body-fat/import` with the same key:
 
 ```json
 {"value":16.1,"unit":"%","sourceName":"VeSync","measuredAt":"2026-10-22T07:35:00-07:00"}
@@ -97,7 +108,7 @@ BP components are atomically upserted by exact source name and timestamp. Each u
 
 ## Verification
 
-Use a disposable local database named `workout_bot_health_test`, apply migrations, then run `TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55441/workout_bot_health_test npm run test:health-sync`. Tests reject remote databases and other database names. Coverage includes source/unit/time validation, partial BP uploads, concurrency, source/time mismatches, retries, corrections, pulse separation, coach auth and Action count.
+Use a disposable local database named `workout_bot_health_test`, apply migrations, then run `TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55441/workout_bot_health_test npm run test:health-sync`. Tests reject remote databases and other database names. Coverage includes the shared upload fields, weight compatibility and source enrichment, source/unit/time validation, partial BP uploads, concurrency, source/time mismatches, retries, corrections, pulse separation, coach auth and Action count.
 
 ## References
 
